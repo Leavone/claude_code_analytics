@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+artifacts/
+*.db
+*.sqlite
+*.sqlite3
+
+telemetry_logs.jsonl
+employees.csv
+
+.pytest_cache/
+.DS_Store
