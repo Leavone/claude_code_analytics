@@ -69,3 +69,7 @@ Flattened telemetry events, including:
 
 - Ingestion is chunked (`--commit-every`, default `5000`) to keep memory predictable.
 - Failed parse cases are counted in ingestion stats for transparency.
+
+## Assignment Documentation
+
+- [LLM usage log](./LLM_USAGE_LOG.md)
