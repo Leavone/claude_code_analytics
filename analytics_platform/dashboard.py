@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from analytics_platform.utils import rows_to_dicts
+from analytics_platform.utils import load_sql, rows_to_dicts
+
+SQL_DIR = Path(__file__).with_name("sql") / "dashboard"
 
 
 @dataclass
@@ -35,19 +38,25 @@ class DashboardFilters:
     users: list[str] | None = None
 
 
-def _where_clause(filters: DashboardFilters, alias: str = "e") -> tuple[str, list[Any]]:
-    """Build a parameterized SQL ``WHERE`` clause from dashboard filters.
+def _render_where_clause(
+    filters: DashboardFilters,
+    alias: str = "e",
+    *,
+    base_conditions: list[str] | None = None,
+) -> tuple[str, list[Any]]:
+    """Build a SQL ``WHERE`` fragment and matching parameters.
 
     Args:
         filters: Active dashboard filter values.
         alias: Table alias to prefix field names in generated predicates.
+        base_conditions: Extra fixed SQL predicates to always apply.
 
     Returns:
-        Tuple ``(where_sql, params)`` where:
-        - ``where_sql`` is either an empty string or a ``WHERE ...`` fragment.
-        - ``params`` is the list of query parameters matching placeholders.
+        Tuple ``(where_clause, params)`` where:
+        - ``where_clause`` is either an empty string or ``WHERE ...``.
+        - ``params`` contains placeholder-bound parameter values.
     """
-    clauses: list[str] = []
+    clauses: list[str] = list(base_conditions or [])
     params: list[Any] = []
 
     if filters.date_from:
@@ -92,43 +101,25 @@ def get_filter_options(conn: sqlite3.Connection) -> dict[str, Any]:
     Returns:
         Dictionary with:
         - ``min_date`` and ``max_date`` over all events,
-        - sorted ``practices``, ``models``, and ``users`` lists.
+        - sorted ``practices``, ``levels``, ``models``, and ``users`` lists.
     """
-    date_row = conn.execute(
-        "SELECT MIN(event_date) AS min_date, MAX(event_date) AS max_date FROM events"
-    ).fetchone()
+    date_row = conn.execute(load_sql(SQL_DIR, "filter_options_date_range.sql")).fetchone()
 
     practices = [
         row[0]
-        for row in conn.execute(
-            """
-            SELECT DISTINCT COALESCE(emp.practice, e.resource_practice, 'Unknown') AS practice
-            FROM events e
-            LEFT JOIN employees emp ON emp.email = e.user_email
-            ORDER BY practice ASC
-            """
-        ).fetchall()
+        for row in conn.execute(load_sql(SQL_DIR, "filter_options_practices.sql")).fetchall()
     ]
-
-    models = [
-        row[0]
-        for row in conn.execute(
-            "SELECT DISTINCT model FROM events WHERE model IS NOT NULL ORDER BY model ASC"
-        ).fetchall()
-    ]
-
     levels = [
         row[0]
-        for row in conn.execute(
-            "SELECT DISTINCT COALESCE(level, 'Unknown') FROM employees ORDER BY 1 ASC"
-        ).fetchall()
+        for row in conn.execute(load_sql(SQL_DIR, "filter_options_levels.sql")).fetchall()
     ]
-
+    models = [
+        row[0]
+        for row in conn.execute(load_sql(SQL_DIR, "filter_options_models.sql")).fetchall()
+    ]
     users = [
         row[0]
-        for row in conn.execute(
-            "SELECT DISTINCT user_email FROM events ORDER BY user_email ASC"
-        ).fetchall()
+        for row in conn.execute(load_sql(SQL_DIR, "filter_options_users.sql")).fetchall()
     ]
 
     return {
@@ -152,21 +143,9 @@ def get_kpis(conn: sqlite3.Connection, filters: DashboardFilters) -> dict[str, A
         Dictionary containing event/session/user counts, token total, and
         aggregated cost in USD.
     """
-    where, params = _where_clause(filters)
-    row = conn.execute(
-        f"""
-        SELECT
-            COUNT(*) AS events,
-            COUNT(DISTINCT e.session_id) AS sessions,
-            COUNT(DISTINCT e.user_email) AS users,
-            ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd,
-            COALESCE(SUM(e.input_tokens), 0) + COALESCE(SUM(e.output_tokens), 0) AS total_tokens
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-        """,
-        params,
-    ).fetchone()
+    where_clause, params = _render_where_clause(filters)
+    sql = load_sql(SQL_DIR, "kpis.sql").format(where_clause=where_clause)
+    row = conn.execute(sql, params).fetchone()
     return dict(row) if row else {}
 
 
@@ -180,21 +159,9 @@ def get_daily_tokens(conn: sqlite3.Connection, filters: DashboardFilters) -> lis
     Returns:
         List of records with ``event_date``, ``practice``, and ``total_tokens``.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            e.event_date,
-            COALESCE(emp.practice, e.resource_practice, 'Unknown') AS practice,
-            COALESCE(SUM(e.input_tokens), 0) + COALESCE(SUM(e.output_tokens), 0) AS total_tokens
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-        GROUP BY e.event_date, practice
-        ORDER BY e.event_date ASC, total_tokens DESC
-        """,
-        params,
-    ).fetchall()
+    where_clause, params = _render_where_clause(filters)
+    sql = load_sql(SQL_DIR, "daily_tokens.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, params).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -208,21 +175,9 @@ def get_hourly_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> lis
     Returns:
         List of records with ``event_hour``, ``event_count``, and ``sessions``.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            e.event_hour,
-            COUNT(*) AS event_count,
-            COUNT(DISTINCT e.session_id) AS sessions
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-        GROUP BY e.event_hour
-        ORDER BY event_count DESC
-        """,
-        params,
-    ).fetchall()
+    where_clause, params = _render_where_clause(filters)
+    sql = load_sql(SQL_DIR, "hourly_usage.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, params).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -236,25 +191,12 @@ def get_model_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list
     Returns:
         List of model usage records ordered by total cost and request volume.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            e.model,
-            COUNT(*) AS requests,
-            ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd,
-            COALESCE(SUM(e.input_tokens), 0) AS input_tokens,
-            COALESCE(SUM(e.output_tokens), 0) AS output_tokens
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-          AND e.event_body = 'claude_code.api_request'
-          AND e.model IS NOT NULL
-        GROUP BY e.model
-        ORDER BY total_cost_usd DESC, requests DESC
-        """,
-        params,
-    ).fetchall()
+    where_clause, params = _render_where_clause(
+        filters,
+        base_conditions=["e.event_body = 'claude_code.api_request'", "e.model IS NOT NULL"],
+    )
+    sql = load_sql(SQL_DIR, "model_usage.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, params).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -270,29 +212,12 @@ def get_tool_usage(conn: sqlite3.Connection, filters: DashboardFilters, limit: i
         List of records containing ``tool_name``, ``runs``, ``success_rate``,
         and ``avg_duration_ms``.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            e.tool_name,
-            COUNT(*) AS runs,
-            ROUND(AVG(CASE
-                WHEN e.success IS NULL THEN NULL
-                WHEN e.success = 1 THEN 1.0
-                ELSE 0.0
-            END), 4) AS success_rate,
-            ROUND(AVG(e.duration_ms), 2) AS avg_duration_ms
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-          AND e.event_body = 'claude_code.tool_result'
-          AND e.tool_name IS NOT NULL
-        GROUP BY e.tool_name
-        ORDER BY runs DESC
-        LIMIT ?
-        """,
-        [*params, max(limit, 1)],
-    ).fetchall()
+    where_clause, params = _render_where_clause(
+        filters,
+        base_conditions=["e.event_body = 'claude_code.tool_result'", "e.tool_name IS NOT NULL"],
+    )
+    sql = load_sql(SQL_DIR, "tool_usage.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, [*params, max(limit, 1)]).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -307,23 +232,9 @@ def get_top_users_by_tokens(conn: sqlite3.Connection, filters: DashboardFilters,
     Returns:
         List of user records including email, practice, token totals, and cost.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            e.user_email,
-            COALESCE(emp.practice, e.resource_practice, 'Unknown') AS practice,
-            COALESCE(SUM(e.input_tokens), 0) + COALESCE(SUM(e.output_tokens), 0) AS total_tokens,
-            ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-        GROUP BY e.user_email, practice
-        ORDER BY total_tokens DESC
-        LIMIT ?
-        """,
-        [*params, max(limit, 1)],
-    ).fetchall()
+    where_clause, params = _render_where_clause(filters)
+    sql = load_sql(SQL_DIR, "top_users_by_tokens.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, [*params, max(limit, 1)]).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -338,21 +249,7 @@ def get_seniority_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> 
         List of records with ``level``, ``events``, ``sessions``,
         ``total_tokens``, and ``total_cost_usd``.
     """
-    where, params = _where_clause(filters)
-    rows = conn.execute(
-        f"""
-        SELECT
-            COALESCE(emp.level, 'Unknown') AS level,
-            COUNT(*) AS events,
-            COUNT(DISTINCT e.session_id) AS sessions,
-            COALESCE(SUM(e.input_tokens), 0) + COALESCE(SUM(e.output_tokens), 0) AS total_tokens,
-            ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd
-        FROM events e
-        LEFT JOIN employees emp ON emp.email = e.user_email
-        {where}
-        GROUP BY COALESCE(emp.level, 'Unknown')
-        ORDER BY total_tokens DESC
-        """,
-        params,
-    ).fetchall()
+    where_clause, params = _render_where_clause(filters)
+    sql = load_sql(SQL_DIR, "seniority_usage.sql").format(where_clause=where_clause)
+    rows = conn.execute(sql, params).fetchall()
     return rows_to_dicts(rows)

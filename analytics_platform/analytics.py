@@ -11,14 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from analytics_platform.db import connect, init_schema
-from analytics_platform.utils import rows_to_dicts
+from analytics_platform.utils import load_sql, rows_to_dicts
 
 SQL_DIR = Path(__file__).with_name("sql")
-
-
-def _load_sql(filename: str) -> str:
-    """Load a SQL statement from the package's sql directory."""
-    return (SQL_DIR / filename).read_text(encoding="utf-8")
 
 
 def get_overview(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -36,7 +31,7 @@ def get_overview(conn: sqlite3.Connection) -> dict[str, Any]:
         ``total_input_tokens``, ``total_output_tokens``, and first/last event
         timestamps.
     """
-    row = conn.execute(_load_sql("overview.sql")).fetchone()
+    row = conn.execute(load_sql(SQL_DIR, "overview.sql")).fetchone()
     return dict(row) if row else {}
 
 
@@ -59,7 +54,7 @@ def get_daily_tokens_by_practice(conn: sqlite3.Connection, days: int = 30) -> li
         - ``output_tokens``
         - ``total_tokens`` (input + output)
     """
-    rows = conn.execute(_load_sql("daily_tokens_by_practice.sql"), (max(days, 1),)).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "daily_tokens_by_practice.sql"), (max(days, 1),)).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -76,7 +71,7 @@ def get_peak_usage_hours(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of dictionaries with ``event_hour``, ``event_count``, ``sessions``,
         and ``users`` sorted by highest event volume first.
     """
-    rows = conn.execute(_load_sql("peak_usage_hours.sql")).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "peak_usage_hours.sql")).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -99,7 +94,7 @@ def get_tool_performance(conn: sqlite3.Connection, min_runs: int = 20) -> list[d
         - ``max_duration_ms``
         ordered by descending run count.
     """
-    rows = conn.execute(_load_sql("tool_performance.sql"), (max(min_runs, 1),)).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "tool_performance.sql"), (max(min_runs, 1),)).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -115,7 +110,7 @@ def get_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of dictionaries with model identifier, request count, total cost,
         input tokens, and output tokens ordered by total cost descending.
     """
-    rows = conn.execute(_load_sql("model_usage.sql")).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "model_usage.sql")).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -129,7 +124,7 @@ def get_seniority_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of level aggregates with event/session/user volume, token totals,
         total cost, and average tokens per session.
     """
-    rows = conn.execute(_load_sql("seniority_usage.sql")).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "seniority_usage.sql")).fetchall()
     return rows_to_dicts(rows)
 
 
@@ -143,7 +138,7 @@ def get_seniority_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of records with ``level``, ``model``, request count, token totals,
         and cost totals.
     """
-    rows = conn.execute(_load_sql("seniority_model_usage.sql")).fetchall()
+    rows = conn.execute(load_sql(SQL_DIR, "seniority_model_usage.sql")).fetchall()
     return rows_to_dicts(rows)
 
 

@@ -1,0 +1,1 @@
+SELECT DISTINCT model FROM events WHERE model IS NOT NULL ORDER BY model ASC

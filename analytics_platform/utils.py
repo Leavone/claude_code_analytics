@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 
@@ -98,3 +99,16 @@ def rows_to_dicts(rows: list[Any]) -> list[dict[str, Any]]:
         List of dictionaries preserving column names as keys.
     """
     return [dict(row) for row in rows]
+
+
+def load_sql(sql_dir: Path, filename: str) -> str:
+    """Load a SQL statement from a given SQL directory.
+
+    Args:
+        sql_dir: Directory containing SQL files.
+        filename: SQL file name (for example ``overview.sql``).
+
+    Returns:
+        SQL text content as a UTF-8 string.
+    """
+    return (sql_dir / filename).read_text(encoding="utf-8")
