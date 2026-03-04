@@ -13,4 +13,5 @@ telemetry_logs.jsonl
 employees.csv
 
 .pytest_cache/
+.coverage
 .DS_Store

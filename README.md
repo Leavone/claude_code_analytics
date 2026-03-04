@@ -11,12 +11,13 @@ This repository now includes **Step 1** of the implementation:
 - CLI commands to ingest data and print summary stats
 - Unit tests for parser and ingestion path
 - Reusable analytics report queries + `insights` CLI command
+- Streamlit dashboard with interactive filters and KPI visualizations
 
 ## Project plan
 
 1. Data foundation: schema + ingestion + validation + CLI (done)
 2. Analytics layer: reusable SQL queries and KPI computation module (done)
-3. Dashboard: Streamlit app with role/time/model filters and visualizations
+3. Dashboard: Streamlit app with role/time/model filters and visualizations (done)
 4. Delivery polish: final README, LLM usage log, and presentation outline
 
 ## Quickstart
@@ -60,6 +61,13 @@ cd claude_code_analytics
 python3 -m analytics_platform.cli insights --db artifacts/analytics.db --days 30 --min-tool-runs 20
 ```
 
+### 6) Run interactive dashboard
+
+```bash
+cd claude_code_analytics
+streamlit run streamlit_app.py
+```
+
 ## Data model
 
 ### `employees`
@@ -84,6 +92,7 @@ Flattened telemetry events, including:
 
 - Ingestion is chunked (`--commit-every`, default `5000`) to keep memory predictable.
 - Failed parse cases are counted in ingestion stats for transparency.
+- Dashboard filters support date range, practice, model, and user scoping.
 
 ## Assignment Documentation
 
