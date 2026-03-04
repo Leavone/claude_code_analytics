@@ -12,6 +12,13 @@ from typing import Any
 
 from analytics_platform.db import connect, init_schema
 
+SQL_DIR = Path(__file__).with_name("sql")
+
+
+def _load_sql(filename: str) -> str:
+    """Load a SQL statement from the package's sql directory."""
+    return (SQL_DIR / filename).read_text(encoding="utf-8")
+
 
 def _rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     """Convert SQLite row objects into plain Python dictionaries.
@@ -40,20 +47,7 @@ def get_overview(conn: sqlite3.Connection) -> dict[str, Any]:
         ``total_input_tokens``, ``total_output_tokens``, and first/last event
         timestamps.
     """
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total_events,
-            COUNT(DISTINCT session_id) AS total_sessions,
-            COUNT(DISTINCT user_email) AS total_users,
-            ROUND(COALESCE(SUM(cost_usd), 0), 6) AS total_cost_usd,
-            COALESCE(SUM(input_tokens), 0) AS total_input_tokens,
-            COALESCE(SUM(output_tokens), 0) AS total_output_tokens,
-            MIN(event_timestamp) AS first_event_at,
-            MAX(event_timestamp) AS last_event_at
-        FROM events
-        """
-    ).fetchone()
+    row = conn.execute(_load_sql("overview.sql")).fetchone()
     return dict(row) if row else {}
 
 
@@ -76,31 +70,7 @@ def get_daily_tokens_by_practice(conn: sqlite3.Connection, days: int = 30) -> li
         - ``output_tokens``
         - ``total_tokens`` (input + output)
     """
-    rows = conn.execute(
-        """
-        WITH bounded AS (
-            SELECT
-                e.event_date,
-                e.input_tokens,
-                e.output_tokens,
-                emp.practice AS employee_practice,
-                e.resource_practice
-            FROM events e
-            LEFT JOIN employees emp ON emp.email = e.user_email
-            WHERE e.event_date >= DATE((SELECT MAX(event_date) FROM events), '-' || ? || ' days')
-        )
-        SELECT
-            event_date,
-            COALESCE(employee_practice, resource_practice, 'Unknown') AS practice,
-            COALESCE(SUM(input_tokens), 0) AS input_tokens,
-            COALESCE(SUM(output_tokens), 0) AS output_tokens,
-            COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) AS total_tokens
-        FROM bounded
-        GROUP BY event_date, practice
-        ORDER BY event_date ASC, total_tokens DESC
-        """,
-        (max(days, 1),),
-    ).fetchall()
+    rows = conn.execute(_load_sql("daily_tokens_by_practice.sql"), (max(days, 1),)).fetchall()
     return _rows_to_dicts(rows)
 
 
@@ -117,18 +87,7 @@ def get_peak_usage_hours(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of dictionaries with ``event_hour``, ``event_count``, ``sessions``,
         and ``users`` sorted by highest event volume first.
     """
-    rows = conn.execute(
-        """
-        SELECT
-            event_hour,
-            COUNT(*) AS event_count,
-            COUNT(DISTINCT session_id) AS sessions,
-            COUNT(DISTINCT user_email) AS users
-        FROM events
-        GROUP BY event_hour
-        ORDER BY event_count DESC, event_hour ASC
-        """
-    ).fetchall()
+    rows = conn.execute(_load_sql("peak_usage_hours.sql")).fetchall()
     return _rows_to_dicts(rows)
 
 
@@ -151,26 +110,7 @@ def get_tool_performance(conn: sqlite3.Connection, min_runs: int = 20) -> list[d
         - ``max_duration_ms``
         ordered by descending run count.
     """
-    rows = conn.execute(
-        """
-        SELECT
-            tool_name,
-            COUNT(*) AS runs,
-            ROUND(AVG(CASE
-                WHEN success IS NULL THEN NULL
-                WHEN success = 1 THEN 1.0
-                ELSE 0.0
-            END), 4) AS success_rate,
-            ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
-            MAX(duration_ms) AS max_duration_ms
-        FROM events
-        WHERE event_body = 'claude_code.tool_result' AND tool_name IS NOT NULL
-        GROUP BY tool_name
-        HAVING COUNT(*) >= ?
-        ORDER BY runs DESC
-        """,
-        (max(min_runs, 1),),
-    ).fetchall()
+    rows = conn.execute(_load_sql("tool_performance.sql"), (max(min_runs, 1),)).fetchall()
     return _rows_to_dicts(rows)
 
 
@@ -186,20 +126,7 @@ def get_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         List of dictionaries with model identifier, request count, total cost,
         input tokens, and output tokens ordered by total cost descending.
     """
-    rows = conn.execute(
-        """
-        SELECT
-            model,
-            COUNT(*) AS requests,
-            ROUND(COALESCE(SUM(cost_usd), 0), 6) AS total_cost_usd,
-            COALESCE(SUM(input_tokens), 0) AS input_tokens,
-            COALESCE(SUM(output_tokens), 0) AS output_tokens
-        FROM events
-        WHERE event_body = 'claude_code.api_request' AND model IS NOT NULL
-        GROUP BY model
-        ORDER BY total_cost_usd DESC, requests DESC
-        """
-    ).fetchall()
+    rows = conn.execute(_load_sql("model_usage.sql")).fetchall()
     return _rows_to_dicts(rows)
 
 
