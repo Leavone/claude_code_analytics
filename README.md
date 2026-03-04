@@ -17,7 +17,7 @@ This repository now includes **Step 1** of the implementation:
 
 1. Data foundation: schema + ingestion + validation + CLI (done)
 2. Analytics layer: reusable SQL queries and KPI computation module (done)
-3. Dashboard: Streamlit app with role/time/model filters and visualizations (done)
+3. Dashboard: Streamlit app with role/time/model/level filters and visualizations (done)
 4. Delivery polish: final README, LLM usage log, and presentation outline
 
 ## Quickstart
@@ -93,6 +93,7 @@ Flattened telemetry events, including:
 - Ingestion is chunked (`--commit-every`, default `5000`) to keep memory predictable.
 - Failed parse cases are counted in ingestion stats for transparency.
 - Dashboard filters support date range, practice, model, and user scoping.
+- Seniority-level analytics are available in both CLI insights and dashboard tables/charts.
 
 ## Assignment Documentation
 

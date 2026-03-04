@@ -185,3 +185,5 @@ def test_build_insights_report(tmp_path) -> None:
     assert report["tool_performance"][0]["runs"] == 2
     assert report["tool_performance"][0]["success_rate"] == 0.5
     assert len(report["model_usage"]) == 2
+    assert len(report["seniority_usage"]) >= 2
+    assert len(report["seniority_model_usage"]) == 2

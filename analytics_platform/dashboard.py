@@ -22,6 +22,7 @@ class DashboardFilters:
         date_from: Inclusive lower date bound in ``YYYY-MM-DD`` format.
         date_to: Inclusive upper date bound in ``YYYY-MM-DD`` format.
         practices: Optional list of engineering practices to include.
+        levels: Optional list of employee levels (for example ``L4``) to include.
         models: Optional list of model names to include.
         users: Optional list of user emails to include.
     """
@@ -29,6 +30,7 @@ class DashboardFilters:
     date_from: str | None = None
     date_to: str | None = None
     practices: list[str] | None = None
+    levels: list[str] | None = None
     models: list[str] | None = None
     users: list[str] | None = None
 
@@ -59,6 +61,11 @@ def _where_clause(filters: DashboardFilters, alias: str = "e") -> tuple[str, lis
         placeholders = ",".join("?" for _ in filters.practices)
         clauses.append(f"COALESCE(emp.practice, {alias}.resource_practice, 'Unknown') IN ({placeholders})")
         params.extend(filters.practices)
+
+    if filters.levels:
+        placeholders = ",".join("?" for _ in filters.levels)
+        clauses.append(f"COALESCE(emp.level, 'Unknown') IN ({placeholders})")
+        params.extend(filters.levels)
 
     if filters.models:
         placeholders = ",".join("?" for _ in filters.models)
@@ -110,6 +117,13 @@ def get_filter_options(conn: sqlite3.Connection) -> dict[str, Any]:
         ).fetchall()
     ]
 
+    levels = [
+        row[0]
+        for row in conn.execute(
+            "SELECT DISTINCT COALESCE(level, 'Unknown') FROM employees ORDER BY 1 ASC"
+        ).fetchall()
+    ]
+
     users = [
         row[0]
         for row in conn.execute(
@@ -121,6 +135,7 @@ def get_filter_options(conn: sqlite3.Connection) -> dict[str, Any]:
         "min_date": date_row["min_date"],
         "max_date": date_row["max_date"],
         "practices": practices,
+        "levels": levels,
         "models": models,
         "users": users,
     }
@@ -308,5 +323,36 @@ def get_top_users_by_tokens(conn: sqlite3.Connection, filters: DashboardFilters,
         LIMIT ?
         """,
         [*params, max(limit, 1)],
+    ).fetchall()
+    return rows_to_dicts(rows)
+
+
+def get_seniority_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
+    """Return usage and cost metrics grouped by employee level.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        List of records with ``level``, ``events``, ``sessions``,
+        ``total_tokens``, and ``total_cost_usd``.
+    """
+    where, params = _where_clause(filters)
+    rows = conn.execute(
+        f"""
+        SELECT
+            COALESCE(emp.level, 'Unknown') AS level,
+            COUNT(*) AS events,
+            COUNT(DISTINCT e.session_id) AS sessions,
+            COALESCE(SUM(e.input_tokens), 0) + COALESCE(SUM(e.output_tokens), 0) AS total_tokens,
+            ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd
+        FROM events e
+        LEFT JOIN employees emp ON emp.email = e.user_email
+        {where}
+        GROUP BY COALESCE(emp.level, 'Unknown')
+        ORDER BY total_tokens DESC
+        """,
+        params,
     ).fetchall()
     return rows_to_dicts(rows)

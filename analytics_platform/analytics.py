@@ -119,6 +119,34 @@ def get_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return rows_to_dicts(rows)
 
 
+def get_seniority_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return usage and cost aggregates grouped by employee level.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        List of level aggregates with event/session/user volume, token totals,
+        total cost, and average tokens per session.
+    """
+    rows = conn.execute(_load_sql("seniority_usage.sql")).fetchall()
+    return rows_to_dicts(rows)
+
+
+def get_seniority_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Return model usage split by employee level.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        List of records with ``level``, ``model``, request count, token totals,
+        and cost totals.
+    """
+    rows = conn.execute(_load_sql("seniority_model_usage.sql")).fetchall()
+    return rows_to_dicts(rows)
+
+
 def build_insights_report(
     db_path: Path,
     *,
@@ -143,6 +171,8 @@ def build_insights_report(
         - ``peak_usage_hours``
         - ``tool_performance``
         - ``model_usage``
+        - ``seniority_usage``
+        - ``seniority_model_usage``
     """
     conn = connect(db_path)
     try:
@@ -153,6 +183,8 @@ def build_insights_report(
             "peak_usage_hours": get_peak_usage_hours(conn),
             "tool_performance": get_tool_performance(conn, min_runs=min_tool_runs),
             "model_usage": get_model_usage(conn),
+            "seniority_usage": get_seniority_usage(conn),
+            "seniority_model_usage": get_seniority_model_usage(conn),
         }
     finally:
         conn.close()

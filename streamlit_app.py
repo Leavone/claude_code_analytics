@@ -19,6 +19,7 @@ from analytics_platform.dashboard import (
     get_hourly_usage,
     get_kpis,
     get_model_usage,
+    get_seniority_usage,
     get_tool_usage,
     get_top_users_by_tokens,
 )
@@ -86,6 +87,7 @@ with st.sidebar:
     )
 
     selected_practices = st.multiselect("Practices", options["practices"], default=[])
+    selected_levels = st.multiselect("Seniority levels", options["levels"], default=[])
     selected_models = st.multiselect("Models", options["models"], default=[])
 
     top_users = options["users"][:30]
@@ -97,6 +99,7 @@ filters = DashboardFilters(
     date_from=date_from,
     date_to=date_to,
     practices=selected_practices or None,
+    levels=selected_levels or None,
     models=selected_models or None,
     users=selected_users or None,
 )
@@ -146,5 +149,16 @@ with row2_right:
 st.subheader("Top Users by Tokens")
 users_df = _safe_df(get_top_users_by_tokens(conn, filters))
 st.dataframe(users_df, use_container_width=True)
+
+st.subheader("Seniority Level Breakdown")
+level_df = _safe_df(get_seniority_usage(conn, filters))
+if level_df.empty:
+    st.info("No data for selected filters.")
+else:
+    chart_col, table_col = st.columns((1, 2))
+    with chart_col:
+        st.bar_chart(level_df.set_index("level")["total_tokens"])
+    with table_col:
+        st.dataframe(level_df, use_container_width=True)
 
 conn.close()

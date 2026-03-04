@@ -9,6 +9,7 @@ from analytics_platform.dashboard import (
     get_hourly_usage,
     get_kpis,
     get_model_usage,
+    get_seniority_usage,
     get_tool_usage,
     get_top_users_by_tokens,
 )
@@ -157,12 +158,14 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert options["min_date"] == "2025-12-03"
         assert options["max_date"] == "2025-12-04"
         assert "Backend Engineering" in options["practices"]
+        assert "L5" in options["levels"]
         assert "claude-opus-4-6" in options["models"]
 
         filters = DashboardFilters(
             date_from="2025-12-03",
             date_to="2025-12-04",
             practices=["Backend Engineering"],
+            levels=["L5"],
         )
         kpis = get_kpis(conn, filters)
         assert kpis["events"] == 2
@@ -194,5 +197,10 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert len(top_users) == 1
         assert top_users[0]["user_email"] == "a@example.com"
         assert top_users[0]["total_tokens"] == 150
+
+        seniority = get_seniority_usage(conn, filters)
+        assert len(seniority) == 1
+        assert seniority[0]["level"] == "L5"
+        assert seniority[0]["total_tokens"] == 150
     finally:
         conn.close()
