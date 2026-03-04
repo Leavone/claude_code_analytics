@@ -3,6 +3,7 @@
 Commands currently exposed:
 - ``ingest``: load raw telemetry + employee metadata into SQLite;
 - ``stats``: print a compact database health and volume summary.
+- ``insights``: output a reusable analytics report in JSON format.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from analytics_platform.analytics import build_insights_report
 from analytics_platform.db import connect, init_schema
 from analytics_platform.ingestion import ingest_telemetry, stats_to_dict
 
@@ -35,6 +37,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     stats_parser = subparsers.add_parser("stats", help="print basic db summary")
     stats_parser.add_argument("--db", type=Path, default=Path("artifacts/analytics.db"))
+
+    insights_parser = subparsers.add_parser("insights", help="print analytics report as json")
+    insights_parser.add_argument("--db", type=Path, default=Path("artifacts/analytics.db"))
+    insights_parser.add_argument("--days", type=int, default=30)
+    insights_parser.add_argument("--min-tool-runs", type=int, default=20)
 
     return parser
 
@@ -138,6 +145,17 @@ def run_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_insights(args: argparse.Namespace) -> int:
+    """Execute the ``insights`` command and print a structured JSON report."""
+    report = build_insights_report(
+        db_path=args.db,
+        days=args.days,
+        min_tool_runs=args.min_tool_runs,
+    )
+    print(json.dumps(report, indent=2))
+    return 0
+
+
 def main() -> int:
     """CLI entrypoint used by ``python -m analytics_platform.cli``.
 
@@ -150,6 +168,8 @@ def main() -> int:
         return run_ingest(args)
     if args.command == "stats":
         return run_stats(args)
+    if args.command == "insights":
+        return run_insights(args)
     parser.error(f"unknown command: {args.command}")
     return 2
 

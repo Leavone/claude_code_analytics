@@ -10,11 +10,12 @@ This repository now includes **Step 1** of the implementation:
 - Basic validation and ingestion quality counters
 - CLI commands to ingest data and print summary stats
 - Unit tests for parser and ingestion path
+- Reusable analytics report queries + `insights` CLI command
 
 ## Project plan
 
-1. Data foundation: schema + ingestion + validation + CLI
-2. Analytics layer: reusable SQL queries and KPI computation module
+1. Data foundation: schema + ingestion + validation + CLI (done)
+2. Analytics layer: reusable SQL queries and KPI computation module (done)
 3. Dashboard: Streamlit app with role/time/model filters and visualizations
 4. Delivery polish: final README, LLM usage log, and presentation outline
 
@@ -43,6 +44,13 @@ python3 -m analytics_platform.cli ingest \
 ```bash
 cd claude_code_analytics
 python3 -m analytics_platform.cli stats --db artifacts/analytics.db
+```
+
+### 4) Generate analytics report JSON
+
+```bash
+cd claude_code_analytics
+python3 -m analytics_platform.cli insights --db artifacts/analytics.db --days 30 --min-tool-runs 20
 ```
 
 ## Data model

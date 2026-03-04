@@ -23,7 +23,8 @@ def connect(db_path: Path) -> sqlite3.Connection:
         - ``sqlite3.Row`` row factory for dict-like access,
         - WAL journal mode for safer concurrent reads,
         - relaxed sync mode (NORMAL) for faster ingestion,
-        - foreign key checks enabled.
+        - foreign key checks enabled,
+        - in-memory temp storage to avoid filesystem temp-db issues.
 
     Side effects:
         Creates parent directories for ``db_path`` when needed.
@@ -34,6 +35,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     conn.execute("PRAGMA foreign_keys=ON;")
+    conn.execute("PRAGMA temp_store=MEMORY;")
     return conn
 
 
