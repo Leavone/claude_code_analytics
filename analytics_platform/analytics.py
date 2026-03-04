@@ -13,7 +13,7 @@ from typing import Any
 from analytics_platform.db import connect, init_schema
 from analytics_platform.utils import load_sql, rows_to_dicts
 
-SQL_DIR = Path(__file__).with_name("sql")
+SQL_DIR = Path(__file__).with_name("sql") / "insights"
 
 
 def get_overview(conn: sqlite3.Connection) -> dict[str, Any]:
