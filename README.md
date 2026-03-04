@@ -21,14 +21,21 @@ This repository now includes **Step 1** of the implementation:
 
 ## Quickstart
 
-### 1) Run tests (stdlib unittest)
+### 1) Install dependencies
 
 ```bash
 cd claude_code_analytics
-python3 -m unittest discover -s tests -p 'test_*.py'
+python3 -m pip install -r requirements.txt
 ```
 
-### 2) Ingest telemetry into SQLite
+### 2) Run tests (pytest)
+
+```bash
+cd claude_code_analytics
+python3 -m pytest -q
+```
+
+### 3) Ingest telemetry into SQLite
 
 ```bash
 cd claude_code_analytics
@@ -39,14 +46,14 @@ python3 -m analytics_platform.cli ingest \
   --replace
 ```
 
-### 3) Print basic stats
+### 4) Print basic stats
 
 ```bash
 cd claude_code_analytics
 python3 -m analytics_platform.cli stats --db artifacts/analytics.db
 ```
 
-### 4) Generate analytics report JSON
+### 5) Generate analytics report JSON
 
 ```bash
 cd claude_code_analytics
