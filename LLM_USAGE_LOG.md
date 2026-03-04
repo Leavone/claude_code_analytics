@@ -22,6 +22,11 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 | 9 | Add insights command | Asked AI to expose analytics report through CLI | `analytics_platform.cli insights` with configurable `--days` and `--min-tool-runs` | JSON report generated on real dataset |
 | 10 | Migrate tests to pytest | Asked AI to convert tests and update docs/dependencies | `tests/*.py` rewritten in pytest style; `requirements.txt` added; README test instructions updated | Syntax checks passed; pytest command documented |
 | 11 | Move SQL out of Python | Asked AI to extract analytics queries into `.sql` files | `analytics_platform/sql/*.sql` + SQL loader in `analytics.py` | `insights` command executed successfully after refactor |
+| 12 | Build interactive dashboard | Asked AI to add Streamlit app and dashboard query layer | `streamlit_app.py` + `analytics_platform/dashboard.py` + filterable KPI/charts/tables | App run and query outputs validated |
+| 13 | Add dashboard test coverage | Asked AI to add tests for new dashboard query module | `tests/test_dashboard.py` covering filters and aggregates | Pytest suite expanded and passed |
+| 14 | Add seniority analytics | Asked AI to implement level-based analytics for insights and dashboard | Seniority SQL files, report sections, dashboard filter/widget updates | CLI `insights` includes seniority sections; tests passed |
+| 15 | SQL structure cleanup | Asked AI to standardize SQL layout and reuse loader helper | `sql/insights/` and `sql/dashboard/` folders + shared `utils.load_sql` | Refactor completed with no test regressions |
+| 16 | Dashboard UX fixes | Asked AI to fix date-range interaction, level sorting, and full filter reset | Numeric level ordering (`L1..L10`), partial date handling, reset-all filters button behavior | Streamlit behavior verified and syntax checks passed |
 
 ## Example Project Prompts (Implementation-Only)
 
@@ -30,6 +35,9 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 3. "Write more detailed docstrings for functions and classes."
 4. "Migrate tests to pytest and add requirements."
 5. "Move analytics SQL queries from Python files into SQL files."
+6. "Add Streamlit dashboard with filters and charts."
+7. "Add seniority-level analytics and expose them in dashboard/insights."
+8. "Fix filter UX issues in Streamlit (date-range and reset behavior)."
 
 ## Validation Performed for AI-Generated Code
 
@@ -48,7 +56,12 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 
 - Test checks:
   - Initial phase: `unittest` runs passed
-  - After pytest migration: syntax checks passed (`py_compile`), pytest dependency added in `requirements.txt`
+  - After pytest migration: test suite run via pytest
+  - Latest run: `./claude_environemnt/bin/python -m pytest -q` -> **5 passed**
+
+- Streamlit validation:
+  - Ran dashboard locally with SQLite source (`streamlit run streamlit_app.py`)
+  - Confirmed sidebar filters, reset behavior, seniority ordering, and charts load without runtime exceptions
 
 ## Quality Controls Applied
 
@@ -56,7 +69,9 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 - Kept data conversion predictable: if a value can’t be converted, we store NULL instead of failing silently.
 - Added ingestion counters for transparency (`bad_batch_json`, `bad_event_json`, `missing_required`).
 - Added automated tests for ingestion + analytics report behavior.
-- Isolated read-query SQL into standalone `.sql` files for maintainability/reviewability.
+- Added automated tests for dashboard query functions.
+- Isolated read-query SQL into `sql/insights/` and `sql/dashboard/` for maintainability/reviewability.
+- Standardized SQL loading through shared utility (`utils.load_sql`).
 
 ## Current AI Contribution Summary
 
@@ -65,8 +80,11 @@ AI was used as an implementation copilot for:
 - database schema and ingestion code generation,
 - test creation and later pytest migration,
 - analytics module implementation,
+- streamlit dashboard implementation,
+- seniority-level insight implementation,
 - documentation improvements,
-- refactoring for maintainability (utility extraction + SQL-file extraction).
+- refactoring for maintainability (utility extraction + SQL-file extraction + folder normalization),
+- UI bugfix implementation (date-range interaction, level sorting, reset flow).
 
 Human oversight covered:
 - requirements interpretation,
