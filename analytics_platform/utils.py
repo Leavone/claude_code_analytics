@@ -83,3 +83,18 @@ def to_bool_int(value: Any) -> int | None:
     if text == "false":
         return 0
     return None
+
+
+def rows_to_dicts(rows: list[Any]) -> list[dict[str, Any]]:
+    """Convert database row objects to plain dictionaries.
+
+    This helper supports SQLite ``Row`` instances and other row types that can
+    be directly wrapped by ``dict(...)``.
+
+    Args:
+        rows: Sequence of row-like objects returned by DB query methods.
+
+    Returns:
+        List of dictionaries preserving column names as keys.
+    """
+    return [dict(row) for row in rows]

@@ -1,4 +1,9 @@
-"""Dashboard data access layer with filter-aware analytics queries."""
+"""Dashboard data access layer with filter-aware analytics queries.
+
+This module provides read-only query helpers used by ``streamlit_app.py``.
+The functions here apply consistent filtering and return JSON-serializable
+records that are easy to pass into DataFrame/chart components.
+"""
 
 from __future__ import annotations
 
@@ -6,10 +11,20 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
+from analytics_platform.utils import rows_to_dicts
+
 
 @dataclass
 class DashboardFilters:
-    """Filter set used across dashboard widgets."""
+    """Filter set shared across all dashboard widgets.
+
+    Attributes:
+        date_from: Inclusive lower date bound in ``YYYY-MM-DD`` format.
+        date_to: Inclusive upper date bound in ``YYYY-MM-DD`` format.
+        practices: Optional list of engineering practices to include.
+        models: Optional list of model names to include.
+        users: Optional list of user emails to include.
+    """
 
     date_from: str | None = None
     date_to: str | None = None
@@ -19,6 +34,17 @@ class DashboardFilters:
 
 
 def _where_clause(filters: DashboardFilters, alias: str = "e") -> tuple[str, list[Any]]:
+    """Build a parameterized SQL ``WHERE`` clause from dashboard filters.
+
+    Args:
+        filters: Active dashboard filter values.
+        alias: Table alias to prefix field names in generated predicates.
+
+    Returns:
+        Tuple ``(where_sql, params)`` where:
+        - ``where_sql`` is either an empty string or a ``WHERE ...`` fragment.
+        - ``params`` is the list of query parameters matching placeholders.
+    """
     clauses: list[str] = []
     params: list[Any] = []
 
@@ -50,12 +76,17 @@ def _where_clause(filters: DashboardFilters, alias: str = "e") -> tuple[str, lis
     return "WHERE " + " AND ".join(clauses), params
 
 
-def _dict_rows(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
-    return [dict(r) for r in rows]
-
-
 def get_filter_options(conn: sqlite3.Connection) -> dict[str, Any]:
-    """Load filter options and available date range from the warehouse."""
+    """Load dashboard filter options from current warehouse contents.
+
+    Args:
+        conn: Open SQLite connection.
+
+    Returns:
+        Dictionary with:
+        - ``min_date`` and ``max_date`` over all events,
+        - sorted ``practices``, ``models``, and ``users`` lists.
+    """
     date_row = conn.execute(
         "SELECT MIN(event_date) AS min_date, MAX(event_date) AS max_date FROM events"
     ).fetchone()
@@ -96,7 +127,16 @@ def get_filter_options(conn: sqlite3.Connection) -> dict[str, Any]:
 
 
 def get_kpis(conn: sqlite3.Connection, filters: DashboardFilters) -> dict[str, Any]:
-    """Return top KPI values for the selected filter scope."""
+    """Return top-level KPI cards for the selected filter scope.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        Dictionary containing event/session/user counts, token total, and
+        aggregated cost in USD.
+    """
     where, params = _where_clause(filters)
     row = conn.execute(
         f"""
@@ -116,7 +156,15 @@ def get_kpis(conn: sqlite3.Connection, filters: DashboardFilters) -> dict[str, A
 
 
 def get_daily_tokens(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
-    """Return daily token trend split by practice."""
+    """Return daily token trend split by engineering practice.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        List of records with ``event_date``, ``practice``, and ``total_tokens``.
+    """
     where, params = _where_clause(filters)
     rows = conn.execute(
         f"""
@@ -132,11 +180,19 @@ def get_daily_tokens(conn: sqlite3.Connection, filters: DashboardFilters) -> lis
         """,
         params,
     ).fetchall()
-    return _dict_rows(rows)
+    return rows_to_dicts(rows)
 
 
 def get_hourly_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
-    """Return hourly activity distribution."""
+    """Return usage distribution by hour for selected scope.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        List of records with ``event_hour``, ``event_count``, and ``sessions``.
+    """
     where, params = _where_clause(filters)
     rows = conn.execute(
         f"""
@@ -152,11 +208,19 @@ def get_hourly_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> lis
         """,
         params,
     ).fetchall()
-    return _dict_rows(rows)
+    return rows_to_dicts(rows)
 
 
 def get_model_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
-    """Return model-level request/cost/token breakdown."""
+    """Return model-level request/cost/token breakdown.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        List of model usage records ordered by total cost and request volume.
+    """
     where, params = _where_clause(filters)
     rows = conn.execute(
         f"""
@@ -176,11 +240,21 @@ def get_model_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list
         """,
         params,
     ).fetchall()
-    return _dict_rows(rows)
+    return rows_to_dicts(rows)
 
 
 def get_tool_usage(conn: sqlite3.Connection, filters: DashboardFilters, limit: int = 20) -> list[dict[str, Any]]:
-    """Return top tools by run count with reliability metrics."""
+    """Return top tools by run count with reliability and latency metrics.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+        limit: Maximum number of tool rows to return.
+
+    Returns:
+        List of records containing ``tool_name``, ``runs``, ``success_rate``,
+        and ``avg_duration_ms``.
+    """
     where, params = _where_clause(filters)
     rows = conn.execute(
         f"""
@@ -204,11 +278,20 @@ def get_tool_usage(conn: sqlite3.Connection, filters: DashboardFilters, limit: i
         """,
         [*params, max(limit, 1)],
     ).fetchall()
-    return _dict_rows(rows)
+    return rows_to_dicts(rows)
 
 
 def get_top_users_by_tokens(conn: sqlite3.Connection, filters: DashboardFilters, limit: int = 15) -> list[dict[str, Any]]:
-    """Return users with highest token consumption."""
+    """Return users with highest token consumption in the selected scope.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+        limit: Maximum number of users to return.
+
+    Returns:
+        List of user records including email, practice, token totals, and cost.
+    """
     where, params = _where_clause(filters)
     rows = conn.execute(
         f"""
@@ -226,4 +309,4 @@ def get_top_users_by_tokens(conn: sqlite3.Connection, filters: DashboardFilters,
         """,
         [*params, max(limit, 1)],
     ).fetchall()
-    return _dict_rows(rows)
+    return rows_to_dicts(rows)

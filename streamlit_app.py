@@ -1,4 +1,9 @@
-"""Streamlit dashboard for Claude Code usage analytics."""
+"""Streamlit dashboard for Claude Code usage analytics.
+
+The app provides an interactive UI for exploring telemetry by date, practice,
+model, and user. It relies on ``analytics_platform.dashboard`` for filtered
+query logic and uses SQLite as the source of truth.
+"""
 
 from __future__ import annotations
 
@@ -26,7 +31,31 @@ st.caption("Interactive telemetry dashboard for usage, cost, and behavior patter
 
 
 def _safe_df(rows: list[dict]) -> pd.DataFrame:
+    """Convert row dictionaries to a DataFrame while handling empty results.
+
+    Args:
+        rows: Query output records.
+
+    Returns:
+        A pandas DataFrame. Empty DataFrame when ``rows`` is empty.
+    """
     return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def _normalize_date_range(date_range) -> tuple[str, str]:
+    """Normalize Streamlit date input into inclusive ISO date boundaries.
+
+    Args:
+        date_range: Value returned by ``st.date_input``. It can be one date or
+            a tuple of two dates.
+
+    Returns:
+        Tuple ``(date_from, date_to)`` formatted as ``YYYY-MM-DD``.
+    """
+    if isinstance(date_range, tuple):
+        return date_range[0].isoformat(), date_range[1].isoformat()
+    single = date_range.isoformat()
+    return single, single
 
 
 with st.sidebar:
@@ -62,12 +91,7 @@ with st.sidebar:
     top_users = options["users"][:30]
     selected_users = st.multiselect("Users (top 30 listed)", top_users, default=[])
 
-if isinstance(date_range, tuple):
-    date_from = date_range[0].isoformat()
-    date_to = date_range[1].isoformat()
-else:
-    date_from = date_range.isoformat()
-    date_to = date_range.isoformat()
+date_from, date_to = _normalize_date_range(date_range)
 
 filters = DashboardFilters(
     date_from=date_from,

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from analytics_platform.db import connect, init_schema
+from analytics_platform.utils import rows_to_dicts
 
 SQL_DIR = Path(__file__).with_name("sql")
 
@@ -18,18 +19,6 @@ SQL_DIR = Path(__file__).with_name("sql")
 def _load_sql(filename: str) -> str:
     """Load a SQL statement from the package's sql directory."""
     return (SQL_DIR / filename).read_text(encoding="utf-8")
-
-
-def _rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
-    """Convert SQLite row objects into plain Python dictionaries.
-
-    Args:
-        rows: Rows returned by ``sqlite3`` queries with ``Row`` factory enabled.
-
-    Returns:
-        A list of dicts, preserving column names as keys.
-    """
-    return [dict(row) for row in rows]
 
 
 def get_overview(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -71,7 +60,7 @@ def get_daily_tokens_by_practice(conn: sqlite3.Connection, days: int = 30) -> li
         - ``total_tokens`` (input + output)
     """
     rows = conn.execute(_load_sql("daily_tokens_by_practice.sql"), (max(days, 1),)).fetchall()
-    return _rows_to_dicts(rows)
+    return rows_to_dicts(rows)
 
 
 def get_peak_usage_hours(conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -88,7 +77,7 @@ def get_peak_usage_hours(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         and ``users`` sorted by highest event volume first.
     """
     rows = conn.execute(_load_sql("peak_usage_hours.sql")).fetchall()
-    return _rows_to_dicts(rows)
+    return rows_to_dicts(rows)
 
 
 def get_tool_performance(conn: sqlite3.Connection, min_runs: int = 20) -> list[dict[str, Any]]:
@@ -111,7 +100,7 @@ def get_tool_performance(conn: sqlite3.Connection, min_runs: int = 20) -> list[d
         ordered by descending run count.
     """
     rows = conn.execute(_load_sql("tool_performance.sql"), (max(min_runs, 1),)).fetchall()
-    return _rows_to_dicts(rows)
+    return rows_to_dicts(rows)
 
 
 def get_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
@@ -127,7 +116,7 @@ def get_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         input tokens, and output tokens ordered by total cost descending.
     """
     rows = conn.execute(_load_sql("model_usage.sql")).fetchall()
-    return _rows_to_dicts(rows)
+    return rows_to_dicts(rows)
 
 
 def build_insights_report(
