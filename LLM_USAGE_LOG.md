@@ -27,6 +27,7 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 | 14 | Add seniority analytics | Asked AI to implement level-based analytics for insights and dashboard | Seniority SQL files, report sections, dashboard filter/widget updates | CLI `insights` includes seniority sections; tests passed |
 | 15 | SQL structure cleanup | Asked AI to standardize SQL layout and reuse loader helper | `sql/insights/` and `sql/dashboard/` folders + shared `utils.load_sql` | Refactor completed with no test regressions |
 | 16 | Dashboard UX fixes | Asked AI to fix date-range interaction, level sorting, and full filter reset | Numeric level ordering (`L1..L10`), partial date handling, reset-all filters button behavior | Streamlit behavior verified and syntax checks passed |
+| 17 | Add API access layer | Asked AI to expose analytics outputs via REST endpoints and add API tests | `api/main.py` FastAPI app (`/health`, `/api/v1/overview`, `/api/v1/insights`, `/api/v1/dashboard/kpis`, `/api/v1/seniority`) + `tests/test_api.py` + README API section | API tests added; run in local venv with `pytest --cov` (API tests skip gracefully if optional test dependency is absent) |
 
 ## Example Project Prompts (Implementation-Only)
 
@@ -38,6 +39,7 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 6. "Add Streamlit dashboard with filters and charts."
 7. "Add seniority-level analytics and expose them in dashboard/insights."
 8. "Fix filter UX issues in Streamlit (date-range and reset behavior)."
+9. "Implement API access with FastAPI endpoints for overview, insights, dashboard KPIs, and seniority metrics."
 
 ## Validation Performed for AI-Generated Code
 
@@ -57,7 +59,7 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 - Test checks:
   - Initial phase: `unittest` runs passed
   - After pytest migration: test suite run via pytest
-  - Latest run: `./claude_environemnt/bin/python -m pytest -q` -> **5 passed**
+  - Latest run: `./claude_environemnt/bin/python -m pytest -q --cov` -> **5 passed, 1 skipped**
 
 - Streamlit validation:
   - Ran dashboard locally with SQLite source (`streamlit run streamlit_app.py`)
@@ -72,6 +74,7 @@ This document records AI-assisted work completed for the **Claude Code Usage Ana
 - Added automated tests for dashboard query functions.
 - Isolated read-query SQL into `sql/insights/` and `sql/dashboard/` for maintainability/reviewability.
 - Standardized SQL loading through shared utility (`utils.load_sql`).
+- Added API-level tests with temporary seeded SQLite databases to validate endpoint behavior and HTTP error handling.
 
 ## Current AI Contribution Summary
 
@@ -81,6 +84,7 @@ AI was used as an implementation copilot for:
 - test creation and later pytest migration,
 - analytics module implementation,
 - streamlit dashboard implementation,
+- FastAPI API layer implementation,
 - seniority-level insight implementation,
 - documentation improvements,
 - refactoring for maintainability (utility extraction + SQL-file extraction + folder normalization),
