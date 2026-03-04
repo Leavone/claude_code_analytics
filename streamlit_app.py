@@ -66,9 +66,24 @@ def _normalize_date_range(date_range) -> tuple[str, str]:
     return single, single
 
 
+def _reset_filters() -> None:
+    """Reset all sidebar filter widgets to their default values."""
+    for key in [
+        "date_range",
+        "selected_practices",
+        "selected_levels",
+        "selected_models",
+        "selected_users",
+    ]:
+        st.session_state.pop(key, None)
+
+
 with st.sidebar:
     st.header("Filters")
     db_path = st.text_input("Database path", value="artifacts/analytics.db")
+    if st.button("Reset filters"):
+        _reset_filters()
+        st.rerun()
 
 if not Path(db_path).exists():
     st.error(f"Database not found: {db_path}")
@@ -86,19 +101,45 @@ if min_date is None or max_date is None:
     st.stop()
 
 with st.sidebar:
+    if "date_range" not in st.session_state:
+        st.session_state["date_range"] = (
+            pd.to_datetime(min_date).date(),
+            pd.to_datetime(max_date).date(),
+        )
     date_range = st.date_input(
         "Date range",
-        value=(pd.to_datetime(min_date).date(), pd.to_datetime(max_date).date()),
+        value=st.session_state["date_range"],
         min_value=pd.to_datetime(min_date).date(),
         max_value=pd.to_datetime(max_date).date(),
+        key="date_range",
     )
 
-    selected_practices = st.multiselect("Practices", options["practices"], default=[])
-    selected_levels = st.multiselect("Seniority levels", options["levels"], default=[])
-    selected_models = st.multiselect("Models", options["models"], default=[])
+    selected_practices = st.multiselect(
+        "Practices",
+        options["practices"],
+        default=[],
+        key="selected_practices",
+    )
+    selected_levels = st.multiselect(
+        "Seniority levels",
+        options["levels"],
+        default=[],
+        key="selected_levels",
+    )
+    selected_models = st.multiselect(
+        "Models",
+        options["models"],
+        default=[],
+        key="selected_models",
+    )
 
     top_users = options["users"][:30]
-    selected_users = st.multiselect("Users (top 30 listed)", top_users, default=[])
+    selected_users = st.multiselect(
+        "Users (top 30 listed)",
+        top_users,
+        default=[],
+        key="selected_users",
+    )
 
 date_from, date_to = _normalize_date_range(date_range)
 
