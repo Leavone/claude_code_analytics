@@ -54,7 +54,14 @@ def _normalize_date_range(date_range) -> tuple[str, str]:
         Tuple ``(date_from, date_to)`` formatted as ``YYYY-MM-DD``.
     """
     if isinstance(date_range, tuple):
-        return date_range[0].isoformat(), date_range[1].isoformat()
+        if len(date_range) == 0:
+            raise ValueError("date range cannot be empty")
+        if len(date_range) == 1:
+            single = date_range[0].isoformat()
+            return single, single
+        start = date_range[0].isoformat()
+        end = date_range[1].isoformat()
+        return (start, end) if start <= end else (end, start)
     single = date_range.isoformat()
     return single, single
 
