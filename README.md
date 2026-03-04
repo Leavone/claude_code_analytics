@@ -12,6 +12,7 @@ This repository now includes **Step 1** of the implementation:
 - Unit tests for parser and ingestion path
 - Reusable analytics report queries + `insights` CLI command
 - Streamlit dashboard with interactive filters and KPI visualizations
+- FastAPI endpoints for programmatic analytics access
 
 ## Project plan
 
@@ -68,6 +69,17 @@ cd claude_code_analytics
 streamlit run streamlit_app.py
 ```
 
+### 7) Run API service
+
+```bash
+cd claude_code_analytics
+uvicorn api.main:app --reload
+```
+
+Then open:
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- Health: `http://127.0.0.1:8000/health`
+
 ## Data model
 
 ### `employees`
@@ -94,6 +106,20 @@ Flattened telemetry events, including:
 - Failed parse cases are counted in ingestion stats for transparency.
 - Dashboard filters support date range, practice, model, and user scoping.
 - Seniority-level analytics are available in both CLI insights and dashboard tables/charts.
+
+## API Endpoints
+
+- `GET /health`
+  - Basic service liveness response.
+- `GET /api/v1/overview?db=artifacts/analytics.db`
+  - Returns top-level KPI snapshot.
+- `GET /api/v1/insights?db=artifacts/analytics.db&days=30&min_tool_runs=20`
+  - Returns full structured insights payload.
+- `GET /api/v1/dashboard/kpis?...`
+  - Returns filtered KPI cards.
+  - Supports `date_from`, `date_to`, `practices`, `levels`, `models`, `users` as query params (comma-separated for lists).
+- `GET /api/v1/seniority?db=artifacts/analytics.db`
+  - Returns seniority usage and seniority model usage sections.
 
 ## Assignment Documentation
 
