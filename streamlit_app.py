@@ -66,24 +66,26 @@ def _normalize_date_range(date_range) -> tuple[str, str]:
     return single, single
 
 
-def _reset_filters() -> None:
-    """Reset all sidebar filter widgets to their default values."""
-    for key in [
-        "date_range",
-        "selected_practices",
-        "selected_levels",
-        "selected_models",
-        "selected_users",
-    ]:
-        st.session_state.pop(key, None)
+def _reset_filters(min_date, max_date) -> None:
+    """Reset all sidebar filter widgets to their default values.
+
+    Args:
+        min_date: Earliest available event date.
+        max_date: Latest available event date.
+    """
+    st.session_state["date_range"] = (
+        pd.to_datetime(min_date).date(),
+        pd.to_datetime(max_date).date(),
+    )
+    st.session_state["selected_practices"] = []
+    st.session_state["selected_levels"] = []
+    st.session_state["selected_models"] = []
+    st.session_state["selected_users"] = []
 
 
 with st.sidebar:
     st.header("Filters")
     db_path = st.text_input("Database path", value="artifacts/analytics.db")
-    if st.button("Reset filters"):
-        _reset_filters()
-        st.rerun()
 
 if not Path(db_path).exists():
     st.error(f"Database not found: {db_path}")
@@ -106,9 +108,21 @@ with st.sidebar:
             pd.to_datetime(min_date).date(),
             pd.to_datetime(max_date).date(),
         )
+    if "selected_practices" not in st.session_state:
+        st.session_state["selected_practices"] = []
+    if "selected_levels" not in st.session_state:
+        st.session_state["selected_levels"] = []
+    if "selected_models" not in st.session_state:
+        st.session_state["selected_models"] = []
+    if "selected_users" not in st.session_state:
+        st.session_state["selected_users"] = []
+
+    if st.button("Reset filters"):
+        _reset_filters(min_date, max_date)
+        st.rerun()
+
     date_range = st.date_input(
         "Date range",
-        value=st.session_state["date_range"],
         min_value=pd.to_datetime(min_date).date(),
         max_value=pd.to_datetime(max_date).date(),
         key="date_range",
@@ -117,19 +131,16 @@ with st.sidebar:
     selected_practices = st.multiselect(
         "Practices",
         options["practices"],
-        default=[],
         key="selected_practices",
     )
     selected_levels = st.multiselect(
         "Seniority levels",
         options["levels"],
-        default=[],
         key="selected_levels",
     )
     selected_models = st.multiselect(
         "Models",
         options["models"],
-        default=[],
         key="selected_models",
     )
 
@@ -137,7 +148,6 @@ with st.sidebar:
     selected_users = st.multiselect(
         "Users (top 30 listed)",
         top_users,
-        default=[],
         key="selected_users",
     )
 
