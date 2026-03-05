@@ -128,9 +128,10 @@ def _render_daily_trend(conn, filters: DashboardFilters) -> None:
     st.line_chart(pivot)
 
 
-def _render_seniority_breakdown(conn, filters: DashboardFilters) -> None:
+def _render_seniority_breakdown(conn, filters: DashboardFilters, *, show_header: bool = True) -> None:
     """Render seniority chart and table with natural level ordering."""
-    st.subheader("Seniority Level Breakdown")
+    if show_header:
+        st.subheader("Seniority Level Breakdown")
     level_df = _safe_df(get_seniority_usage(conn, filters))
     if level_df.empty:
         st.info("No data for selected filters.")
@@ -161,9 +162,10 @@ def _render_seniority_breakdown(conn, filters: DashboardFilters) -> None:
         st.dataframe(level_df.drop(columns=["_level_num"]), width="stretch")
 
 
-def _render_advanced_statistics(conn, filters: DashboardFilters) -> None:
+def _render_advanced_statistics(conn, filters: DashboardFilters, *, show_header: bool = True) -> None:
     """Render advanced statistics cards, tables, and correlation notes."""
-    st.subheader("Advanced Statistical Analysis")
+    if show_header:
+        st.subheader("Advanced Statistical Analysis")
     advanced_stats = get_advanced_statistics(conn, filters)
     dist = advanced_stats["session_token_distribution"]
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
@@ -209,17 +211,17 @@ def _render_advanced_statistics(conn, filters: DashboardFilters) -> None:
             st.dataframe(high_sessions_df, width="stretch")
 
     with correlations_tab:
-        st.markdown(
-            "**What these correlations mean**\n"
-            "- `session_api_requests` vs `session_avg_tokens_per_request`: do sessions with more requests also have bigger requests on average?\n"
-            "- `session_api_requests` vs `session_cost_per_request_usd`: as sessions include more requests, does average cost per request change?\n"
-            "- `session_tokens` vs `session_cost_per_1k_tokens_usd`: do larger sessions use a cheaper or more expensive model mix per 1K tokens?\n"
-            "- `session_tool_runs` vs `session_cost_per_request_usd`: when tools are used more, does each request become cheaper or more expensive?\n"
-            "- `session_tool_success_rate` vs `session_tokens`: do more successful tool runs happen in bigger or smaller sessions?\n"
-            "- `session_cache_read_ratio` vs `session_cost_per_1k_tokens_usd`: when cache reuse is higher, does cost per 1K tokens go down?\n"
-            "- `daily_api_requests` vs `daily_avg_tokens_per_request`: on high-traffic days, are requests shorter or longer on average?\n"
-            "- `daily_sessions` vs `daily_avg_tokens_per_session`: on days with more sessions, are sessions lighter or heavier on average?\n"
-        )
+        with st.expander("How to interpret these correlation pairs", expanded=False):
+            st.markdown(
+                "- `session_api_requests` vs `session_avg_tokens_per_request`: do sessions with more requests also have bigger requests on average?\n"
+                "- `session_api_requests` vs `session_cost_per_request_usd`: as sessions include more requests, does average cost per request change?\n"
+                "- `session_tokens` vs `session_cost_per_1k_tokens_usd`: do larger sessions use a cheaper or more expensive model mix per 1K tokens?\n"
+                "- `session_tool_runs` vs `session_cost_per_request_usd`: when tools are used more, does each request become cheaper or more expensive?\n"
+                "- `session_tool_success_rate` vs `session_tokens`: do more successful tool runs happen in bigger or smaller sessions?\n"
+                "- `session_cache_read_ratio` vs `session_cost_per_1k_tokens_usd`: when cache reuse is higher, does cost per 1K tokens go down?\n"
+                "- `daily_api_requests` vs `daily_avg_tokens_per_request`: on high-traffic days, are requests shorter or longer on average?\n"
+                "- `daily_sessions` vs `daily_avg_tokens_per_session`: on days with more sessions, are sessions lighter or heavier on average?\n"
+            )
         corr_global_df = _safe_df(advanced_stats["correlation_analysis"]["global"])
         corr_practice_df = _safe_df(advanced_stats["correlation_analysis"]["by_practice"])
         if corr_global_df.empty and corr_practice_df.empty:
@@ -238,9 +240,10 @@ def _render_advanced_statistics(conn, filters: DashboardFilters) -> None:
                 st.dataframe(corr_practice_df, width="stretch")
 
 
-def _render_predictive_analytics(conn, filters: DashboardFilters) -> None:
+def _render_predictive_analytics(conn, filters: DashboardFilters, *, show_header: bool = True) -> None:
     """Render ML forecasting controls, fit metrics, and forecast chart."""
-    st.subheader("Predictive Analytics (ML)")
+    if show_header:
+        st.subheader("Predictive Analytics (ML)")
     pred_col1, pred_col2 = st.columns(2)
     with pred_col1:
         forecast_target_label = st.selectbox(
@@ -290,6 +293,26 @@ def _render_predictive_analytics(conn, filters: DashboardFilters) -> None:
     else:
         st.caption("Residual anomalies (|z| >= 2) from fitted trend:")
         st.dataframe(anomaly_df, width="stretch")
+
+
+def _render_detailed_tables(conn, filters: DashboardFilters) -> None:
+    """Render model/tool/user/seniority tables inside a compact tabbed panel."""
+    with st.expander("Usage Breakdown Tables", expanded=False):
+        st.caption("Detailed views are grouped in tabs to keep the main dashboard compact.")
+        model_tab, tool_tab, users_tab, seniority_tab = st.tabs(
+            ["Model Usage", "Tool Performance", "Top Users", "Seniority"]
+        )
+        with model_tab:
+            model_df = _safe_df(get_model_usage(conn, filters))
+            st.dataframe(model_df, width="stretch")
+        with tool_tab:
+            tool_df = _safe_df(get_tool_usage(conn, filters))
+            st.dataframe(tool_df, width="stretch")
+        with users_tab:
+            users_df = _safe_df(get_top_users_by_tokens(conn, filters))
+            st.dataframe(users_df, width="stretch")
+        with seniority_tab:
+            _render_seniority_breakdown(conn, filters, show_header=False)
 
 
 with st.sidebar:
@@ -395,24 +418,12 @@ with right:
         hourly_df = hourly_df.sort_values("event_hour")
         st.bar_chart(hourly_df.set_index("event_hour")["event_count"])
 
-row2_left, row2_right = st.columns(2)
+_render_detailed_tables(conn, filters)
 
-with row2_left:
-    st.subheader("Model Usage")
-    model_df = _safe_df(get_model_usage(conn, filters))
-    st.dataframe(model_df, width="stretch")
+with st.expander("Advanced Statistics", expanded=False):
+    _render_advanced_statistics(conn, filters, show_header=False)
 
-with row2_right:
-    st.subheader("Tool Performance")
-    tool_df = _safe_df(get_tool_usage(conn, filters))
-    st.dataframe(tool_df, width="stretch")
-
-st.subheader("Top Users by Tokens")
-users_df = _safe_df(get_top_users_by_tokens(conn, filters))
-st.dataframe(users_df, width="stretch")
-
-_render_seniority_breakdown(conn, filters)
-_render_advanced_statistics(conn, filters)
-_render_predictive_analytics(conn, filters)
+with st.expander("Predictive Analytics (ML)", expanded=False):
+    _render_predictive_analytics(conn, filters, show_header=False)
 
 conn.close()
