@@ -151,22 +151,6 @@ def get_kpis(conn: sqlite3.Connection, filters: DashboardFilters) -> dict[str, A
     return dict(row) if row else {}
 
 
-def get_daily_tokens(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
-    """Return daily token trend split by engineering practice.
-
-    Args:
-        conn: Open SQLite connection.
-        filters: Dashboard filter set.
-
-    Returns:
-        List of records with ``event_date``, ``practice``, and ``total_tokens``.
-    """
-    where_clause, params = _render_where_clause(filters)
-    sql = load_sql(SQL_DIR, "daily_tokens.sql").format(where_clause=where_clause)
-    rows = conn.execute(sql, params).fetchall()
-    return rows_to_dicts(rows)
-
-
 def get_daily_trend(
     conn: sqlite3.Connection,
     filters: DashboardFilters,

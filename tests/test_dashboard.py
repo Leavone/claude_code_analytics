@@ -5,7 +5,6 @@ import json
 from analytics_platform.dashboard import (
     DashboardFilters,
     get_advanced_statistics,
-    get_daily_tokens,
     get_daily_trend,
     get_filter_options,
     get_hourly_usage,
@@ -176,9 +175,9 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert kpis["users"] == 1
         assert kpis["total_tokens"] == 150
 
-        daily = get_daily_tokens(conn, filters)
+        daily = get_daily_trend(conn, filters, group_by="practice")
         assert len(daily) == 1
-        assert daily[0]["practice"] == "Backend Engineering"
+        assert daily[0]["group_value"] == "Backend Engineering"
         assert daily[0]["total_tokens"] == 150
         assert "event_count" in daily[0]
         assert "total_cost_usd" in daily[0]
