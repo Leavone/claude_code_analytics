@@ -10,6 +10,7 @@ from analytics_platform.analytics import (
     build_insights_report,
     get_advanced_statistics,
     get_overview,
+    get_predictive_analytics,
     get_seniority_model_usage,
     get_seniority_usage,
 )
@@ -57,11 +58,17 @@ def api_insights(
     db: str = Query(default="artifacts/analytics.db"),
     days: int = Query(default=30, ge=1, le=365),
     min_tool_runs: int = Query(default=20, ge=1, le=10000),
+    forecast_days: int = Query(default=7, ge=1, le=90),
 ) -> dict:
     """Return full insights payload (same structure as CLI insights command)."""
     db_path = Path(db)
     _assert_db_exists(db_path)
-    return build_insights_report(db_path=db_path, days=days, min_tool_runs=min_tool_runs)
+    return build_insights_report(
+        db_path=db_path,
+        days=days,
+        min_tool_runs=min_tool_runs,
+        forecast_days=forecast_days,
+    )
 
 
 @app.get("/api/v1/dashboard/kpis")
@@ -125,5 +132,29 @@ def api_advanced_statistics(
     try:
         init_schema(conn)
         return get_advanced_statistics(conn, days=days)
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/predictive")
+def api_predictive(
+    db: str = Query(default="artifacts/analytics.db"),
+    days: int = Query(default=90, ge=7, le=365),
+    forecast_days: int = Query(default=7, ge=1, le=90),
+    target_metric: str = Query(default="total_tokens"),
+) -> dict:
+    """Return predictive analytics forecast and residual-anomaly section."""
+    db_path = Path(db)
+    _assert_db_exists(db_path)
+    conn = connect(db_path)
+    try:
+        init_schema(conn)
+        return get_predictive_analytics(
+            conn,
+            days=days,
+            forecast_days=forecast_days,
+            target_metric=target_metric,
+            target_label=target_metric,
+        )
     finally:
         conn.close()

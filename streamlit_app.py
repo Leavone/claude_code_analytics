@@ -21,6 +21,7 @@ from analytics_platform.dashboard import (
     get_hourly_usage,
     get_kpis,
     get_model_usage,
+    get_predictive_analytics,
     get_seniority_usage,
     get_tool_usage,
     get_top_users_by_tokens,
@@ -352,5 +353,62 @@ with correlations_tab:
             st.info("No per-practice correlation metrics available for current filters.")
         else:
             st.dataframe(corr_practice_df, width="stretch")
+
+st.subheader("Predictive Analytics (ML)")
+target_options = {
+    "Total tokens": "total_tokens",
+    "Input tokens": "input_tokens",
+    "Output tokens": "output_tokens",
+    "Event count": "event_count",
+    "Cost (USD)": "total_cost_usd",
+}
+pred_col1, pred_col2 = st.columns(2)
+with pred_col1:
+    forecast_target_label = st.selectbox(
+        "Forecast target",
+        options=list(target_options.keys()),
+        index=0,
+        key="predictive_target_metric",
+    )
+with pred_col2:
+    forecast_days = st.slider("Forecast horizon (days)", min_value=3, max_value=30, value=7, step=1)
+
+predictive = get_predictive_analytics(
+    conn,
+    filters,
+    forecast_days=forecast_days,
+    target_metric=target_options[forecast_target_label],
+    target_label=forecast_target_label,
+)
+
+metrics = predictive.get("metrics", {})
+mcol1, mcol2, mcol3 = st.columns(3)
+mcol1.metric("Forecast model", str(predictive.get("model_name", "n/a")))
+mcol2.metric("Training points", f"{int(predictive.get('training_points', 0)):,}")
+mcol3.metric("R²", "n/a" if metrics.get("r2") is None else f"{float(metrics['r2']):.3f}")
+st.caption(f"Target series: {predictive.get('target_label', forecast_target_label)}")
+
+history_df = _safe_df(predictive.get("history", []))
+forecast_df = _safe_df(predictive.get("forecast", []))
+if history_df.empty:
+    st.info("Not enough historical data for forecasting in current filters.")
+else:
+    hist_plot = history_df[["event_date", "actual_tokens", "fitted_tokens"]].rename(
+        columns={"actual_tokens": "actual", "fitted_tokens": "fitted"}
+    )
+    if forecast_df.empty:
+        chart_df = hist_plot
+    else:
+        pred_plot = forecast_df[["event_date", "predicted_tokens"]].rename(columns={"predicted_tokens": "forecast"})
+        chart_df = hist_plot.merge(pred_plot, on="event_date", how="outer")
+    chart_df = chart_df.set_index("event_date")
+    st.line_chart(chart_df)
+
+    anomaly_df = history_df[history_df["is_anomaly"] == True]  # noqa: E712
+    if anomaly_df.empty:
+        st.caption("No model-residual anomalies detected in training window.")
+    else:
+        st.caption("Residual anomalies (|z| >= 2) from fitted trend:")
+        st.dataframe(anomaly_df, width="stretch")
 
 conn.close()

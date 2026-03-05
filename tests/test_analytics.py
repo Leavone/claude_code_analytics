@@ -192,3 +192,6 @@ def test_build_insights_report(tmp_path) -> None:
     assert report["advanced_statistics"]["session_token_distribution"]["session_count"] == 2
     assert len(report["advanced_statistics"]["practice_variability"]) >= 2
     assert "correlation_analysis" in report["advanced_statistics"]
+    assert "predictive_analytics" in report
+    assert "history" in report["predictive_analytics"]
+    assert "forecast" in report["predictive_analytics"]

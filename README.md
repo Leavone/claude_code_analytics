@@ -15,6 +15,7 @@ This repository now includes **Step 1** of the implementation:
 - FastAPI endpoints for programmatic analytics access
 - Advanced statistical analysis (anomaly detection and distribution/variability metrics)
 - Dashboard panel for advanced statistics (anomalies, variability, high-token sessions)
+- Predictive analytics component (daily token trend forecasting + residual anomaly flags)
 
 ## Project plan
 
@@ -124,6 +125,8 @@ Flattened telemetry events, including:
   - Returns seniority usage and seniority model usage sections.
 - `GET /api/v1/advanced-statistics?db=artifacts/analytics.db&days=30`
   - Returns deeper statistics: daily token z-score anomalies, session token distribution percentiles, practice-level variability, and high-token sessions.
+- `GET /api/v1/predictive?db=artifacts/analytics.db&days=90&forecast_days=7&target_metric=total_tokens`
+  - Returns ML-style forecast output: in-sample fit metrics, residual anomalies, and future predictions for selected target metric (`total_tokens`, `input_tokens`, `output_tokens`, `event_count`, `total_cost_usd`).
 
 ## Assignment Documentation
 

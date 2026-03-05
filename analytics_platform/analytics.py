@@ -12,6 +12,7 @@ from typing import Any
 
 from analytics_platform.advanced_stats import build_advanced_statistics_payload
 from analytics_platform.db import connect, init_schema
+from analytics_platform.predictive import build_predictive_payload
 from analytics_platform.utils import load_sql, rows_to_dicts
 
 SQL_DIR = Path(__file__).with_name("sql") / "insights"
@@ -179,11 +180,44 @@ def get_advanced_statistics(conn: sqlite3.Connection, days: int = 30) -> dict[st
     )
 
 
+def get_predictive_analytics(
+    conn: sqlite3.Connection,
+    *,
+    days: int = 90,
+    forecast_days: int = 7,
+    target_metric: str = "total_tokens",
+    target_label: str | None = None,
+) -> dict[str, Any]:
+    """Build ML-style forecasting output over daily token usage.
+
+    Args:
+        conn: Open SQLite connection.
+        days: Number of trailing days to include in training data.
+        forecast_days: Number of future days to forecast.
+        target_metric: Daily metric column to forecast.
+        target_label: Optional human-readable metric label.
+
+    Returns:
+        Predictive analytics payload with in-sample fit quality and future
+        forecasts.
+    """
+    daily_rows = rows_to_dicts(
+        conn.execute(load_sql(SQL_DIR, "advanced_daily_tokens.sql"), (max(days, 1),)).fetchall()
+    )
+    return build_predictive_payload(
+        daily_rows,
+        forecast_days=forecast_days,
+        target_metric=target_metric,
+        target_label=target_label,
+    )
+
+
 def build_insights_report(
     db_path: Path,
     *,
     days: int = 30,
     min_tool_runs: int = 20,
+    forecast_days: int = 7,
 ) -> dict[str, Any]:
     """Build a complete structured insights report from a database path.
 
@@ -195,6 +229,7 @@ def build_insights_report(
         db_path: Path to the SQLite analytics database.
         days: Trailing window (in days) for daily trend outputs.
         min_tool_runs: Minimum run threshold for tool performance table.
+        forecast_days: Forecast horizon in days for predictive analytics block.
 
     Returns:
         Dictionary with sections:
@@ -206,6 +241,7 @@ def build_insights_report(
         - ``seniority_usage``
         - ``seniority_model_usage``
         - ``advanced_statistics``
+        - ``predictive_analytics``
     """
     conn = connect(db_path)
     try:
@@ -219,6 +255,11 @@ def build_insights_report(
             "seniority_usage": get_seniority_usage(conn),
             "seniority_model_usage": get_seniority_model_usage(conn),
             "advanced_statistics": get_advanced_statistics(conn, days=days),
+            "predictive_analytics": get_predictive_analytics(
+                conn,
+                days=max(days, 30),
+                forecast_days=forecast_days,
+            ),
         }
     finally:
         conn.close()

@@ -42,6 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     insights_parser.add_argument("--db", type=Path, default=Path("artifacts/analytics.db"))
     insights_parser.add_argument("--days", type=int, default=30)
     insights_parser.add_argument("--min-tool-runs", type=int, default=20)
+    insights_parser.add_argument("--forecast-days", type=int, default=7)
 
     return parser
 
@@ -151,6 +152,7 @@ def run_insights(args: argparse.Namespace) -> int:
         db_path=args.db,
         days=args.days,
         min_tool_runs=args.min_tool_runs,
+        forecast_days=args.forecast_days,
     )
     print(json.dumps(report, indent=2))
     return 0

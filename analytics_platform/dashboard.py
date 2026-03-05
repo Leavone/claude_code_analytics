@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from analytics_platform.advanced_stats import build_advanced_statistics_payload
+from analytics_platform.predictive import build_predictive_payload
 from analytics_platform.utils import load_sql, rows_to_dicts
 
 SQL_DIR = Path(__file__).with_name("sql") / "dashboard"
@@ -360,3 +361,39 @@ def get_advanced_statistics(conn: sqlite3.Connection, filters: DashboardFilters)
     daily_rows = rows_to_dicts(conn.execute(daily_sql, daily_params).fetchall())
     session_rows = rows_to_dicts(conn.execute(session_sql, session_params).fetchall())
     return build_advanced_statistics_payload(daily_rows, session_rows)
+
+
+def get_predictive_analytics(
+    conn: sqlite3.Connection,
+    filters: DashboardFilters,
+    *,
+    forecast_days: int = 7,
+    target_metric: str = "total_tokens",
+    target_label: str | None = None,
+) -> dict[str, Any]:
+    """Return forecast/anomaly payload for dashboard-selected scope.
+
+    The training data is built from daily aggregates in the currently selected
+    filter context.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+        forecast_days: Forecast horizon in days.
+        target_metric: Daily metric column to forecast.
+        target_label: Optional human-readable metric label.
+
+    Returns:
+        Predictive analytics payload ready for dashboard visualization.
+    """
+    daily_rows = get_daily_trend(
+        conn,
+        filters,
+        group_by="overall",
+    )
+    return build_predictive_payload(
+        daily_rows,
+        forecast_days=forecast_days,
+        target_metric=target_metric,
+        target_label=target_label,
+    )

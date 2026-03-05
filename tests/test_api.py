@@ -114,11 +114,12 @@ def test_overview_and_insights(api_dataset) -> None:
     overview = api_overview(db=str(api_dataset))
     assert overview["total_events"] == 2
 
-    payload = api_insights(db=str(api_dataset), days=7, min_tool_runs=1)
+    payload = api_insights(db=str(api_dataset), days=7, min_tool_runs=1, forecast_days=7)
     assert "overview" in payload
     assert "seniority_usage" in payload
     assert "advanced_statistics" in payload
     assert "correlation_analysis" in payload["advanced_statistics"]
+    assert "predictive_analytics" in payload
 
 
 def test_dashboard_kpis_with_filters(api_dataset) -> None:
@@ -146,6 +147,16 @@ def test_advanced_statistics_endpoint(api_dataset) -> None:
     assert "session_token_distribution" in body
     assert "practice_variability" in body
     assert "correlation_analysis" in body
+
+
+def test_predictive_endpoint(api_dataset) -> None:
+    """Return predictive payload with requested forecast horizon."""
+    from api.main import api_predictive
+
+    body = api_predictive(db=str(api_dataset), days=30, forecast_days=5, target_metric="total_tokens")
+    assert body["forecast_days"] == 5
+    assert "history" in body
+    assert "forecast" in body
 
 
 def test_missing_db_returns_404(tmp_path) -> None:

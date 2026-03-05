@@ -11,6 +11,7 @@ from analytics_platform.dashboard import (
     get_hourly_usage,
     get_kpis,
     get_model_usage,
+    get_predictive_analytics,
     get_seniority_usage,
     get_tool_usage,
     get_top_users_by_tokens,
@@ -227,5 +228,11 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert len(advanced["practice_variability"]) == 1
         assert advanced["practice_variability"][0]["practice"] == "Backend Engineering"
         assert "correlation_analysis" in advanced
+
+        predictive = get_predictive_analytics(conn, filters, forecast_days=5)
+        assert predictive["forecast_days"] == 5
+        assert "history" in predictive
+        assert "forecast" in predictive
+        assert len(predictive["forecast"]) == 5
     finally:
         conn.close()
