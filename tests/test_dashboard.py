@@ -4,6 +4,7 @@ import json
 
 from analytics_platform.dashboard import (
     DashboardFilters,
+    get_advanced_statistics,
     get_daily_tokens,
     get_filter_options,
     get_hourly_usage,
@@ -202,5 +203,12 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert len(seniority) == 1
         assert seniority[0]["level"] == "L5"
         assert seniority[0]["total_tokens"] == 150
+
+        advanced = get_advanced_statistics(conn, filters)
+        assert "session_token_distribution" in advanced
+        assert advanced["session_token_distribution"]["session_count"] == 1
+        assert "practice_variability" in advanced
+        assert len(advanced["practice_variability"]) == 1
+        assert advanced["practice_variability"][0]["practice"] == "Backend Engineering"
     finally:
         conn.close()

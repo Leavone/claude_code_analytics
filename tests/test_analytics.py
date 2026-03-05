@@ -25,6 +25,7 @@ def _make_event(event_id: str, ts_ms: int, payload: dict) -> dict:
 
 
 def test_build_insights_report(tmp_path) -> None:
+    """Build full insights payload and verify advanced-statistics section."""
     telemetry_path = tmp_path / "telemetry.jsonl"
     employees_path = tmp_path / "employees.csv"
     db_path = tmp_path / "analytics.db"
@@ -187,3 +188,6 @@ def test_build_insights_report(tmp_path) -> None:
     assert len(report["model_usage"]) == 2
     assert len(report["seniority_usage"]) >= 2
     assert len(report["seniority_model_usage"]) == 2
+    assert "advanced_statistics" in report
+    assert report["advanced_statistics"]["session_token_distribution"]["session_count"] == 2
+    assert len(report["advanced_statistics"]["practice_variability"]) >= 2

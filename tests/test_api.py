@@ -5,11 +5,10 @@ import json
 import pytest
 
 pytest.importorskip("fastapi")
-pytest.importorskip("httpx")
-from fastapi.testclient import TestClient
+from fastapi import HTTPException
 
 from analytics_platform.ingestion import ingest_telemetry
-from api.main import app
+from api.main import api_advanced_statistics, api_dashboard_kpis, api_insights, api_overview, health
 
 
 def _make_event(event_id: str, ts_ms: int, payload: dict) -> dict:
@@ -108,48 +107,48 @@ def api_dataset(tmp_path):
 
 
 def test_health() -> None:
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert health() == {"status": "ok"}
 
 
 def test_overview_and_insights(api_dataset) -> None:
-    client = TestClient(app)
+    overview = api_overview(db=str(api_dataset))
+    assert overview["total_events"] == 2
 
-    overview = client.get("/api/v1/overview", params={"db": str(api_dataset)})
-    assert overview.status_code == 200
-    assert overview.json()["total_events"] == 2
-
-    insights = client.get(
-        "/api/v1/insights",
-        params={"db": str(api_dataset), "days": 7, "min_tool_runs": 1},
-    )
-    assert insights.status_code == 200
-    payload = insights.json()
+    payload = api_insights(db=str(api_dataset), days=7, min_tool_runs=1)
     assert "overview" in payload
     assert "seniority_usage" in payload
+    assert "advanced_statistics" in payload
 
 
 def test_dashboard_kpis_with_filters(api_dataset) -> None:
-    client = TestClient(app)
-    response = client.get(
-        "/api/v1/dashboard/kpis",
-        params={
-            "db": str(api_dataset),
-            "practices": "Backend Engineering",
-            "levels": "L5",
-        },
+    body = api_dashboard_kpis(
+        db=str(api_dataset),
+        date_from=None,
+        date_to=None,
+        practices="Backend Engineering",
+        levels="L5",
+        models=None,
+        users=None,
     )
-    assert response.status_code == 200
-    body = response.json()
     assert body["events"] == 1
     assert body["users"] == 1
     assert body["total_tokens"] == 150
 
 
+def test_advanced_statistics_endpoint(api_dataset) -> None:
+    """Return advanced-statistics payload and key expected sections."""
+    body = api_advanced_statistics(
+        db=str(api_dataset),
+        days=30,
+    )
+    assert "daily_token_anomalies" in body
+    assert "session_token_distribution" in body
+    assert "practice_variability" in body
+
+
 def test_missing_db_returns_404(tmp_path) -> None:
-    client = TestClient(app)
     missing = tmp_path / "missing.db"
-    response = client.get("/api/v1/overview", params={"db": str(missing)})
-    assert response.status_code == 404
+    with pytest.raises(HTTPException) as exc_info:
+        api_overview(db=str(missing))
+    assert exc_info.value.status_code == 404
+    assert "database not found" in str(exc_info.value.detail)

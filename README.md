@@ -13,6 +13,8 @@ This repository now includes **Step 1** of the implementation:
 - Reusable analytics report queries + `insights` CLI command
 - Streamlit dashboard with interactive filters and KPI visualizations
 - FastAPI endpoints for programmatic analytics access
+- Advanced statistical analysis (anomaly detection and distribution/variability metrics)
+- Dashboard panel for advanced statistics (anomalies, variability, high-token sessions)
 
 ## Project plan
 
@@ -120,6 +122,8 @@ Flattened telemetry events, including:
   - Supports `date_from`, `date_to`, `practices`, `levels`, `models`, `users` as query params (comma-separated for lists).
 - `GET /api/v1/seniority?db=artifacts/analytics.db`
   - Returns seniority usage and seniority model usage sections.
+- `GET /api/v1/advanced-statistics?db=artifacts/analytics.db&days=30`
+  - Returns deeper statistics: daily token z-score anomalies, session token distribution percentiles, practice-level variability, and high-token sessions.
 
 ## Assignment Documentation
 

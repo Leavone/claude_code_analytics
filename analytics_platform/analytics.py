@@ -10,6 +10,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from analytics_platform.advanced_stats import build_advanced_statistics_payload
 from analytics_platform.db import connect, init_schema
 from analytics_platform.utils import load_sql, rows_to_dicts
 
@@ -142,6 +143,40 @@ def get_seniority_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return rows_to_dicts(rows)
 
 
+def get_advanced_statistics(conn: sqlite3.Connection, days: int = 30) -> dict[str, Any]:
+    """Compute advanced statistical sections over historical API usage.
+
+    This function provides deeper analytical signals than base aggregates. It
+    currently includes:
+    - daily token anomaly detection via z-score;
+    - distribution metrics across session token totals;
+    - per-practice variability using standard deviation and coefficient of
+      variation;
+    - high-token session outlier list (above the 95th percentile).
+
+    Args:
+        conn: Open SQLite connection.
+        days: Number of trailing days to evaluate for daily anomaly detection.
+            Values below ``1`` are normalized to ``1``.
+
+    Returns:
+        Dictionary with the following keys:
+        - ``daily_token_anomalies``
+        - ``session_token_distribution``
+        - ``practice_variability``
+        - ``high_token_sessions``
+    """
+    day_rows = rows_to_dicts(
+        conn.execute(load_sql(SQL_DIR, "advanced_daily_tokens.sql"), (max(days, 1),)).fetchall()
+    )
+    session_rows = rows_to_dicts(conn.execute(load_sql(SQL_DIR, "advanced_session_totals.sql")).fetchall())
+    return build_advanced_statistics_payload(
+        day_rows,
+        session_rows,
+        window_days=max(days, 1),
+    )
+
+
 def build_insights_report(
     db_path: Path,
     *,
@@ -168,6 +203,7 @@ def build_insights_report(
         - ``model_usage``
         - ``seniority_usage``
         - ``seniority_model_usage``
+        - ``advanced_statistics``
     """
     conn = connect(db_path)
     try:
@@ -180,6 +216,7 @@ def build_insights_report(
             "model_usage": get_model_usage(conn),
             "seniority_usage": get_seniority_usage(conn),
             "seniority_model_usage": get_seniority_model_usage(conn),
+            "advanced_statistics": get_advanced_statistics(conn, days=days),
         }
     finally:
         conn.close()

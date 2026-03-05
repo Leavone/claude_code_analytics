@@ -14,6 +14,7 @@ import streamlit as st
 
 from analytics_platform.dashboard import (
     DashboardFilters,
+    get_advanced_statistics,
     get_daily_tokens,
     get_filter_options,
     get_hourly_usage,
@@ -218,5 +219,48 @@ else:
         st.bar_chart(level_df.set_index("level")["total_tokens"])
     with table_col:
         st.dataframe(level_df, use_container_width=True)
+
+st.subheader("Advanced Statistical Analysis")
+advanced_stats = get_advanced_statistics(conn, filters)
+dist = advanced_stats["session_token_distribution"]
+metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+metric_col1.metric("Median Session Tokens", f"{dist.get('median', 0):,.0f}")
+metric_col2.metric("P95 Session Tokens", f"{dist.get('p95', 0):,.0f}")
+metric_col3.metric("Session IQR", f"{dist.get('iqr', 0):,.0f}")
+metric_col4.metric("Session Count", f"{int(dist.get('session_count', 0)):,}")
+with st.expander("How to read these metrics", expanded=False):
+    st.markdown(
+        "- **Median Session Tokens**: typical session size.\n"
+        "- **P95 Session Tokens**: top-5% high-usage threshold.\n"
+        "- **Session IQR**: spread of the middle 50% of sessions.\n"
+        "- **Daily anomalies**: days with |z-score| >= 2.\n"
+        "- **Variability (CV)**: standard deviation / mean; higher means less predictable usage."
+    )
+
+anomalies_tab, variability_tab, high_sessions_tab = st.tabs(
+    ["Daily Anomalies", "Practice Variability", "High-Token Sessions"]
+)
+
+with anomalies_tab:
+    anomalies_df = _safe_df(advanced_stats["daily_token_anomalies"]["anomalies"])
+    if anomalies_df.empty:
+        st.info("No token anomalies detected for current filters.")
+    else:
+        st.dataframe(anomalies_df, use_container_width=True)
+
+with variability_tab:
+    variability_df = _safe_df(advanced_stats["practice_variability"])
+    if variability_df.empty:
+        st.info("Not enough session data for variability metrics.")
+    else:
+        st.bar_chart(variability_df.set_index("practice")["coefficient_of_variation"])
+        st.dataframe(variability_df, use_container_width=True)
+
+with high_sessions_tab:
+    high_sessions_df = _safe_df(advanced_stats["high_token_sessions"])
+    if high_sessions_df.empty:
+        st.info("No high-token sessions for current filters.")
+    else:
+        st.dataframe(high_sessions_df, use_container_width=True)
 
 conn.close()

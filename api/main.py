@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Query
 
 from analytics_platform.analytics import (
     build_insights_report,
+    get_advanced_statistics,
     get_overview,
     get_seniority_model_usage,
     get_seniority_usage,
@@ -107,5 +108,22 @@ def api_seniority(db: str = Query(default="artifacts/analytics.db")) -> dict[str
             "seniority_usage": get_seniority_usage(conn),
             "seniority_model_usage": get_seniority_model_usage(conn),
         }
+    finally:
+        conn.close()
+
+
+@app.get("/api/v1/advanced-statistics")
+def api_advanced_statistics(
+    db: str = Query(default="artifacts/analytics.db"),
+    days: int = Query(default=30, ge=1, le=365),
+) -> dict:
+    """Return advanced statistical analysis sections for API request usage."""
+    db_path = Path(db)
+    _assert_db_exists(db_path)
+
+    conn = connect(db_path)
+    try:
+        init_schema(conn)
+        return get_advanced_statistics(conn, days=days)
     finally:
         conn.close()

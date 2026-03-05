@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from analytics_platform.advanced_stats import build_advanced_statistics_payload
 from analytics_platform.utils import load_sql, rows_to_dicts
 
 SQL_DIR = Path(__file__).with_name("sql") / "dashboard"
@@ -253,3 +254,37 @@ def get_seniority_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> 
     sql = load_sql(SQL_DIR, "seniority_usage.sql").format(where_clause=where_clause)
     rows = conn.execute(sql, params).fetchall()
     return rows_to_dicts(rows)
+
+
+def get_advanced_statistics(conn: sqlite3.Connection, filters: DashboardFilters) -> dict[str, Any]:
+    """Return advanced statistical analysis for the selected dashboard scope.
+
+    Unlike global insights-level advanced statistics, this function applies
+    current dashboard filters before computing metrics. It helps users inspect
+    variability and anomalies inside an actively selected segment
+    (for example one practice, level, or model).
+
+    The returned payload contains:
+    - ``daily_token_anomalies``: per-day totals and z-score outliers;
+    - ``session_token_distribution``: distribution summary over session totals;
+    - ``practice_variability``: standard deviation and coefficient of variation
+      by practice;
+    - ``high_token_sessions``: top sessions above p95 threshold.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+
+    Returns:
+        Dictionary with advanced-statistics sections suitable for tables/charts.
+    """
+    where_clause, params = _render_where_clause(
+        filters,
+        base_conditions=["e.event_body = 'claude_code.api_request'"],
+    )
+    daily_sql = load_sql(SQL_DIR, "advanced_daily_tokens.sql").format(where_clause=where_clause)
+    session_sql = load_sql(SQL_DIR, "advanced_session_totals.sql").format(where_clause=where_clause)
+
+    daily_rows = rows_to_dicts(conn.execute(daily_sql, params).fetchall())
+    session_rows = rows_to_dicts(conn.execute(session_sql, params).fetchall())
+    return build_advanced_statistics_payload(daily_rows, session_rows)
