@@ -16,7 +16,7 @@ import streamlit as st
 from analytics_platform.dashboard import (
     DashboardFilters,
     get_advanced_statistics,
-    get_daily_tokens,
+    get_daily_trend,
     get_filter_options,
     get_hourly_usage,
     get_kpis,
@@ -177,12 +177,52 @@ st.divider()
 left, right = st.columns((2, 1))
 
 with left:
-    st.subheader("Daily Token Trend by Practice")
-    daily_df = _safe_df(get_daily_tokens(conn, filters))
+    st.subheader("Daily Trend")
+    y_axis_options = {
+        "Total tokens": "total_tokens",
+        "Input tokens": "input_tokens",
+        "Output tokens": "output_tokens",
+        "Event count": "event_count",
+        "Cost (USD)": "total_cost_usd",
+    }
+    split_options = {
+        "Overall": "overall",
+        "Practice": "practice",
+        "Seniority level": "level",
+        "Model": "model",
+        "Event name": "event_name",
+        "Terminal type": "terminal_type",
+    }
+    trend_controls_left, trend_controls_right = st.columns(2)
+    with trend_controls_left:
+        selected_y_axis_label = st.selectbox(
+            "Y-axis metric",
+            options=list(y_axis_options.keys()),
+            index=0,
+            key="daily_trend_y_axis",
+        )
+    with trend_controls_right:
+        selected_split_label = st.selectbox(
+            "Split lines by",
+            options=list(split_options.keys()),
+            index=1,
+            key="daily_trend_split_by",
+        )
+    selected_split = split_options[selected_split_label]
+
+    daily_df = _safe_df(
+        get_daily_trend(
+            conn,
+            filters,
+            group_by=selected_split,
+            max_groups=None,
+        )
+    )
     if daily_df.empty:
         st.info("No data for selected filters.")
     else:
-        pivot = daily_df.pivot(index="event_date", columns="practice", values="total_tokens").fillna(0)
+        selected_y_axis = y_axis_options[selected_y_axis_label]
+        pivot = daily_df.pivot(index="event_date", columns="group_value", values=selected_y_axis).fillna(0)
         st.line_chart(pivot)
 
 with right:
@@ -199,16 +239,16 @@ row2_left, row2_right = st.columns(2)
 with row2_left:
     st.subheader("Model Usage")
     model_df = _safe_df(get_model_usage(conn, filters))
-    st.dataframe(model_df, use_container_width=True)
+    st.dataframe(model_df, width="stretch")
 
 with row2_right:
     st.subheader("Tool Performance")
     tool_df = _safe_df(get_tool_usage(conn, filters))
-    st.dataframe(tool_df, use_container_width=True)
+    st.dataframe(tool_df, width="stretch")
 
 st.subheader("Top Users by Tokens")
 users_df = _safe_df(get_top_users_by_tokens(conn, filters))
-st.dataframe(users_df, use_container_width=True)
+st.dataframe(users_df, width="stretch")
 
 st.subheader("Seniority Level Breakdown")
 level_df = _safe_df(get_seniority_usage(conn, filters))
@@ -235,9 +275,9 @@ else:
                 tooltip=["level", "events", "sessions", "total_tokens", "total_cost_usd"],
             )
         )
-        st.altair_chart(level_chart, use_container_width=True)
+        st.altair_chart(level_chart, width="stretch")
     with table_col:
-        st.dataframe(level_df.drop(columns=["_level_num"]), use_container_width=True)
+        st.dataframe(level_df.drop(columns=["_level_num"]), width="stretch")
 
 st.subheader("Advanced Statistical Analysis")
 advanced_stats = get_advanced_statistics(conn, filters)
@@ -267,7 +307,7 @@ with anomalies_tab:
     if anomalies_df.empty:
         st.info("No token anomalies detected for current filters.")
     else:
-        st.dataframe(anomalies_df, use_container_width=True)
+        st.dataframe(anomalies_df, width="stretch")
 
 with variability_tab:
     variability_df = _safe_df(advanced_stats["practice_variability"])
@@ -275,14 +315,14 @@ with variability_tab:
         st.info("Not enough session data for variability metrics.")
     else:
         st.bar_chart(variability_df.set_index("practice")["coefficient_of_variation"])
-        st.dataframe(variability_df, use_container_width=True)
+        st.dataframe(variability_df, width="stretch")
 
 with high_sessions_tab:
     high_sessions_df = _safe_df(advanced_stats["high_token_sessions"])
     if high_sessions_df.empty:
         st.info("No high-token sessions for current filters.")
     else:
-        st.dataframe(high_sessions_df, use_container_width=True)
+        st.dataframe(high_sessions_df, width="stretch")
 
 with correlations_tab:
     st.markdown(
@@ -305,12 +345,12 @@ with correlations_tab:
         if corr_global_df.empty:
             st.info("No global correlation metrics available for current filters.")
         else:
-            st.dataframe(corr_global_df, use_container_width=True)
+            st.dataframe(corr_global_df, width="stretch")
 
         st.caption("By-practice correlations: request depth and cache-efficiency signals")
         if corr_practice_df.empty:
             st.info("No per-practice correlation metrics available for current filters.")
         else:
-            st.dataframe(corr_practice_df, use_container_width=True)
+            st.dataframe(corr_practice_df, width="stretch")
 
 conn.close()

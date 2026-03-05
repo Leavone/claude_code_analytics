@@ -166,6 +166,76 @@ def get_daily_tokens(conn: sqlite3.Connection, filters: DashboardFilters) -> lis
     return rows_to_dicts(rows)
 
 
+def get_daily_trend(
+    conn: sqlite3.Connection,
+    filters: DashboardFilters,
+    *,
+    group_by: str = "practice",
+    max_groups: int | None = None,
+) -> list[dict[str, Any]]:
+    """Return daily trend metrics split by a selected grouping dimension.
+
+    Supported grouping keys are:
+    - ``overall``: single line aggregated over all filtered rows,
+    - ``practice``: engineering practice,
+    - ``level``: employee seniority level,
+    - ``model``: model name,
+    - ``event_name``: event subtype name,
+    - ``terminal_type``: terminal client type.
+
+    Args:
+        conn: Open SQLite connection.
+        filters: Dashboard filter set.
+        group_by: Grouping key listed above.
+        max_groups: Optional cap for number of groups retained. Selection is
+            based on highest total tokens across the filtered date range.
+
+    Returns:
+        List of trend rows with ``event_date``, ``group_value``, token metrics,
+        event count, and cost.
+    """
+    group_select_map = {
+        "overall": "'Overall'",
+        "practice": "COALESCE(emp.practice, e.resource_practice, 'Unknown')",
+        "level": "COALESCE(emp.level, 'Unknown')",
+        "model": "COALESCE(e.model, 'Unknown')",
+        "event_name": "COALESCE(e.event_name, 'Unknown')",
+        "terminal_type": "COALESCE(e.terminal_type, 'Unknown')",
+    }
+    selected_group = group_select_map.get(group_by, group_select_map["practice"])
+
+    base_conditions: list[str] | None = None
+    if group_by == "model":
+        base_conditions = ["e.event_body = 'claude_code.api_request'", "e.model IS NOT NULL"]
+
+    where_clause, params = _render_where_clause(filters, base_conditions=base_conditions)
+    sql = load_sql(SQL_DIR, "daily_trend.sql").format(
+        where_clause=where_clause,
+        group_select=selected_group,
+    )
+    rows = rows_to_dicts(conn.execute(sql, params).fetchall())
+
+    if group_by == "overall" or not max_groups or max_groups < 1:
+        return rows
+
+    totals_by_group: dict[str, float] = {}
+    for row in rows:
+        group_value = str(row["group_value"])
+        totals_by_group[group_value] = totals_by_group.get(group_value, 0.0) + float(
+            row["total_tokens"] or 0.0
+        )
+
+    top_groups = {
+        group
+        for group, _ in sorted(
+            totals_by_group.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:max_groups]
+    }
+    return [row for row in rows if str(row["group_value"]) in top_groups]
+
+
 def get_hourly_usage(conn: sqlite3.Connection, filters: DashboardFilters) -> list[dict[str, Any]]:
     """Return usage distribution by hour for selected scope.
 

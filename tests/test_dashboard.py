@@ -6,6 +6,7 @@ from analytics_platform.dashboard import (
     DashboardFilters,
     get_advanced_statistics,
     get_daily_tokens,
+    get_daily_trend,
     get_filter_options,
     get_hourly_usage,
     get_kpis,
@@ -178,6 +179,21 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert len(daily) == 1
         assert daily[0]["practice"] == "Backend Engineering"
         assert daily[0]["total_tokens"] == 150
+        assert "event_count" in daily[0]
+        assert "total_cost_usd" in daily[0]
+
+        daily_overall = get_daily_trend(conn, filters, group_by="overall")
+        assert len(daily_overall) == 1
+        assert daily_overall[0]["group_value"] == "Overall"
+        assert daily_overall[0]["total_tokens"] == 150
+
+        daily_by_model = get_daily_trend(conn, filters, group_by="model")
+        assert len(daily_by_model) == 1
+        assert daily_by_model[0]["group_value"] == "claude-opus-4-6"
+
+        daily_limited = get_daily_trend(conn, DashboardFilters(date_from="2025-12-03", date_to="2025-12-04"), group_by="practice", max_groups=1)
+        groups = {row["group_value"] for row in daily_limited}
+        assert len(groups) == 1
 
         hourly = get_hourly_usage(conn, filters)
         assert len(hourly) == 1
