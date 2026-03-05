@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -214,11 +215,29 @@ level_df = _safe_df(get_seniority_usage(conn, filters))
 if level_df.empty:
     st.info("No data for selected filters.")
 else:
+    level_num = pd.to_numeric(
+        level_df["level"].astype(str).str.strip().str.upper().str.extract(r"(\d+)")[0],
+        errors="coerce",
+    )
+    level_df = (
+        level_df.assign(_level_num=level_num.fillna(10**9))
+        .sort_values(by=["_level_num", "level"], kind="stable")
+    )
+    level_order = level_df["level"].tolist()
     chart_col, table_col = st.columns((1, 2))
     with chart_col:
-        st.bar_chart(level_df.set_index("level")["total_tokens"])
+        level_chart = (
+            alt.Chart(level_df)
+            .mark_bar()
+            .encode(
+                x=alt.X("level:N", sort=level_order, title="Level"),
+                y=alt.Y("total_tokens:Q", title="Total Tokens"),
+                tooltip=["level", "events", "sessions", "total_tokens", "total_cost_usd"],
+            )
+        )
+        st.altair_chart(level_chart, use_container_width=True)
     with table_col:
-        st.dataframe(level_df, use_container_width=True)
+        st.dataframe(level_df.drop(columns=["_level_num"]), use_container_width=True)
 
 st.subheader("Advanced Statistical Analysis")
 advanced_stats = get_advanced_statistics(conn, filters)
