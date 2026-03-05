@@ -210,5 +210,6 @@ def test_dashboard_queries_with_filters(tmp_path) -> None:
         assert "practice_variability" in advanced
         assert len(advanced["practice_variability"]) == 1
         assert advanced["practice_variability"][0]["practice"] == "Backend Engineering"
+        assert "correlation_analysis" in advanced
     finally:
         conn.close()

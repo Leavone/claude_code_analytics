@@ -118,6 +118,7 @@ def test_overview_and_insights(api_dataset) -> None:
     assert "overview" in payload
     assert "seniority_usage" in payload
     assert "advanced_statistics" in payload
+    assert "correlation_analysis" in payload["advanced_statistics"]
 
 
 def test_dashboard_kpis_with_filters(api_dataset) -> None:
@@ -144,6 +145,7 @@ def test_advanced_statistics_endpoint(api_dataset) -> None:
     assert "daily_token_anomalies" in body
     assert "session_token_distribution" in body
     assert "practice_variability" in body
+    assert "correlation_analysis" in body
 
 
 def test_missing_db_returns_404(tmp_path) -> None:

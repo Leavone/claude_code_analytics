@@ -270,6 +270,7 @@ def get_advanced_statistics(conn: sqlite3.Connection, filters: DashboardFilters)
     - ``practice_variability``: standard deviation and coefficient of variation
       by practice;
     - ``high_token_sessions``: top sessions above p95 threshold.
+    - ``correlation_analysis``: Pearson correlations for key metric pairs.
 
     Args:
         conn: Open SQLite connection.
@@ -278,13 +279,14 @@ def get_advanced_statistics(conn: sqlite3.Connection, filters: DashboardFilters)
     Returns:
         Dictionary with advanced-statistics sections suitable for tables/charts.
     """
-    where_clause, params = _render_where_clause(
+    daily_where_clause, daily_params = _render_where_clause(
         filters,
         base_conditions=["e.event_body = 'claude_code.api_request'"],
     )
-    daily_sql = load_sql(SQL_DIR, "advanced_daily_tokens.sql").format(where_clause=where_clause)
-    session_sql = load_sql(SQL_DIR, "advanced_session_totals.sql").format(where_clause=where_clause)
+    session_where_clause, session_params = _render_where_clause(filters)
+    daily_sql = load_sql(SQL_DIR, "advanced_daily_tokens.sql").format(where_clause=daily_where_clause)
+    session_sql = load_sql(SQL_DIR, "advanced_session_totals.sql").format(where_clause=session_where_clause)
 
-    daily_rows = rows_to_dicts(conn.execute(daily_sql, params).fetchall())
-    session_rows = rows_to_dicts(conn.execute(session_sql, params).fetchall())
+    daily_rows = rows_to_dicts(conn.execute(daily_sql, daily_params).fetchall())
+    session_rows = rows_to_dicts(conn.execute(session_sql, session_params).fetchall())
     return build_advanced_statistics_payload(daily_rows, session_rows)

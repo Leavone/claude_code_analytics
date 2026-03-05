@@ -234,11 +234,13 @@ with st.expander("How to read these metrics", expanded=False):
         "- **P95 Session Tokens**: top-5% high-usage threshold.\n"
         "- **Session IQR**: spread of the middle 50% of sessions.\n"
         "- **Daily anomalies**: days with |z-score| >= 2.\n"
-        "- **Variability (CV)**: standard deviation / mean; higher means less predictable usage."
+        "- **Variability (CV)**: standard deviation / mean; higher means less predictable usage.\n"
+        "- **Correlation analysis**: focuses on efficiency-style relationships (for example requests vs avg tokens/request), "
+        "not only obvious volume-to-volume links."
     )
 
-anomalies_tab, variability_tab, high_sessions_tab = st.tabs(
-    ["Daily Anomalies", "Practice Variability", "High-Token Sessions"]
+anomalies_tab, variability_tab, high_sessions_tab, correlations_tab = st.tabs(
+    ["Daily Anomalies", "Practice Variability", "High-Token Sessions", "Correlations"]
 )
 
 with anomalies_tab:
@@ -262,5 +264,34 @@ with high_sessions_tab:
         st.info("No high-token sessions for current filters.")
     else:
         st.dataframe(high_sessions_df, use_container_width=True)
+
+with correlations_tab:
+    st.markdown(
+        "**What these correlations mean**\n"
+        "- `session_api_requests` vs `session_avg_tokens_per_request`: do sessions with more requests also have bigger requests on average?\n"
+        "- `session_api_requests` vs `session_cost_per_request_usd`: as sessions include more requests, does average cost per request change?\n"
+        "- `session_tokens` vs `session_cost_per_1k_tokens_usd`: do larger sessions use a cheaper or more expensive model mix per 1K tokens?\n"
+        "- `session_tool_runs` vs `session_cost_per_request_usd`: when tools are used more, does each request become cheaper or more expensive?\n"
+        "- `session_tool_success_rate` vs `session_tokens`: do more successful tool runs happen in bigger or smaller sessions?\n"
+        "- `session_cache_read_ratio` vs `session_cost_per_1k_tokens_usd`: when cache reuse is higher, does cost per 1K tokens go down?\n"
+        "- `daily_api_requests` vs `daily_avg_tokens_per_request`: on high-traffic days, are requests shorter or longer on average?\n"
+        "- `daily_sessions` vs `daily_avg_tokens_per_session`: on days with more sessions, are sessions lighter or heavier on average?\n"
+    )
+    corr_global_df = _safe_df(advanced_stats["correlation_analysis"]["global"])
+    corr_practice_df = _safe_df(advanced_stats["correlation_analysis"]["by_practice"])
+    if corr_global_df.empty and corr_practice_df.empty:
+        st.info("Not enough data points to compute stable correlations.")
+    else:
+        st.caption("Global efficiency correlations")
+        if corr_global_df.empty:
+            st.info("No global correlation metrics available for current filters.")
+        else:
+            st.dataframe(corr_global_df, use_container_width=True)
+
+        st.caption("By-practice correlations: request depth and cache-efficiency signals")
+        if corr_practice_df.empty:
+            st.info("No per-practice correlation metrics available for current filters.")
+        else:
+            st.dataframe(corr_practice_df, use_container_width=True)
 
 conn.close()

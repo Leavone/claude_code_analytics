@@ -153,6 +153,7 @@ def get_advanced_statistics(conn: sqlite3.Connection, days: int = 30) -> dict[st
     - per-practice variability using standard deviation and coefficient of
       variation;
     - high-token session outlier list (above the 95th percentile).
+    - correlation analysis across token/request/cost relationships.
 
     Args:
         conn: Open SQLite connection.
@@ -165,6 +166,7 @@ def get_advanced_statistics(conn: sqlite3.Connection, days: int = 30) -> dict[st
         - ``session_token_distribution``
         - ``practice_variability``
         - ``high_token_sessions``
+        - ``correlation_analysis``
     """
     day_rows = rows_to_dicts(
         conn.execute(load_sql(SQL_DIR, "advanced_daily_tokens.sql"), (max(days, 1),)).fetchall()
