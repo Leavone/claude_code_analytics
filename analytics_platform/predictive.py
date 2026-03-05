@@ -12,6 +12,33 @@ from typing import Any
 
 import numpy as np
 
+FORECAST_TARGET_LABELS: dict[str, str] = {
+    "total_tokens": "Total tokens",
+    "input_tokens": "Input tokens",
+    "output_tokens": "Output tokens",
+    "event_count": "Event count",
+    "total_cost_usd": "Cost (USD)",
+}
+
+
+def _resolve_target_label(target_metric: str, target_label: str | None) -> str:
+    """Validate target metric and return display label.
+
+    Args:
+        target_metric: Metric key requested by caller.
+        target_label: Optional explicit label override.
+
+    Returns:
+        Display label for the selected metric.
+
+    Raises:
+        ValueError: If ``target_metric`` is unsupported.
+    """
+    if target_metric not in FORECAST_TARGET_LABELS:
+        valid = ", ".join(sorted(FORECAST_TARGET_LABELS))
+        raise ValueError(f"unsupported target_metric '{target_metric}'. choose one of: {valid}")
+    return target_label or FORECAST_TARGET_LABELS[target_metric]
+
 
 def _safe_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float | None:
     """Compute R-squared while handling degenerate variance cases.
@@ -63,17 +90,18 @@ def build_predictive_payload(
         - ``forecast``: point forecast and simple confidence band;
         - ``status``: ``ok`` or ``insufficient_data``.
     """
+    resolved_label = _resolve_target_label(target_metric, target_label)
     horizon = max(forecast_days, 1)
     if not daily_rows:
         return {
-            "model_name": "linear_regression_time_trend",
+            "model_name": "Linear trend (OLS)",
             "training_points": 0,
             "forecast_days": horizon,
             "metrics": {"mae": None, "rmse": None, "r2": None},
             "history": [],
             "forecast": [],
             "target_metric": target_metric,
-            "target_label": target_label or target_metric,
+            "target_label": resolved_label,
             "status": "insufficient_data",
         }
 
@@ -85,12 +113,12 @@ def build_predictive_payload(
         base_date = date.fromisoformat(str(rows[-1]["event_date"]))
         point = max(float(y[0]), 0.0)
         return {
-            "model_name": "linear_regression_time_trend",
+            "model_name": "Linear trend (OLS)",
             "training_points": int(y.size),
             "forecast_days": horizon,
             "metrics": {"mae": 0.0, "rmse": 0.0, "r2": None},
             "target_metric": target_metric,
-            "target_label": target_label or target_metric,
+            "target_label": resolved_label,
             "history": [
                 {
                     "event_date": rows[0]["event_date"],
@@ -156,7 +184,7 @@ def build_predictive_payload(
         "training_points": int(y.size),
         "forecast_days": horizon,
         "target_metric": target_metric,
-        "target_label": target_label or target_metric,
+        "target_label": resolved_label,
         "metrics": {
             "mae": round(mae, 3),
             "rmse": round(rmse, 3),

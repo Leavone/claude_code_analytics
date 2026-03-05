@@ -5,7 +5,11 @@ WITH bounds AS (
 )
 SELECT
     e.event_date,
+    COALESCE(SUM(e.input_tokens), 0) AS input_tokens,
+    COALESCE(SUM(e.output_tokens), 0) AS output_tokens,
     SUM(COALESCE(e.input_tokens, 0) + COALESCE(e.output_tokens, 0)) AS total_tokens,
+    COUNT(*) AS event_count,
+    ROUND(COALESCE(SUM(e.cost_usd), 0), 4) AS total_cost_usd,
     COUNT(*) AS api_requests,
     COUNT(DISTINCT e.session_id) AS sessions
 FROM events_enriched e

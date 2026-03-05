@@ -16,6 +16,7 @@ from analytics_platform.analytics import (
 )
 from analytics_platform.dashboard import DashboardFilters, get_kpis
 from analytics_platform.db import connect, init_schema
+from analytics_platform.predictive import FORECAST_TARGET_LABELS
 
 app = FastAPI(title="Claude Code Analytics API", version="1.0.0")
 
@@ -146,6 +147,9 @@ def api_predictive(
     """Return predictive analytics forecast and residual-anomaly section."""
     db_path = Path(db)
     _assert_db_exists(db_path)
+    if target_metric not in FORECAST_TARGET_LABELS:
+        valid = ", ".join(sorted(FORECAST_TARGET_LABELS))
+        raise HTTPException(status_code=400, detail=f"unsupported target_metric '{target_metric}'. valid: {valid}")
     conn = connect(db_path)
     try:
         init_schema(conn)
