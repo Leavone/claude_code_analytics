@@ -4,7 +4,9 @@
 
 <p align="center">
   <a href="https://www.linkedin.com/in/levon-avetisyan-41a680204/">LinkedIn</a> |
-  <a href="mailto:lev.avyan17@gmail.com">Gmail</a>
+  <a href="mailto:lev.avyan17@gmail.com">Gmail</a> |
+  <a href="./claude-code-telemetry-findings-presentation.pdf">Insights Presentation</a> |
+  <a href="./LLM_USAGE_LOG.md">LLM Usage Log</a>
 </p>
 
 # Claude Code Usage Analytics Platform
